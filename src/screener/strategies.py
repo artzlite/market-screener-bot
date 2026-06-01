@@ -97,8 +97,8 @@ def run_screener(
                     indicator_values=values,
                 ))
 
-        # Sort by ticker name
-        matched.sort(key=lambda r: r.ticker)
+        # Sort by absolute % change descending (largest movers first), then by ticker name
+        matched.sort(key=lambda r: (-abs(r.indicator_values.get("change_pct") or 0.0), r.ticker))
         results[strategy.name] = matched
 
         if matched:

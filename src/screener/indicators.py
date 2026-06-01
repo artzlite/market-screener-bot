@@ -130,6 +130,8 @@ def calculate_all_indicators(df: pd.DataFrame, config: ScreenerConfig) -> dict[s
 
         latest_close = df["Close"].iloc[-1]
         latest_sma = sma.iloc[-1]
+        prev_close = df["Close"].iloc[-2] if len(df) > 1 else latest_close
+        change_pct = float(((latest_close - prev_close) / prev_close) * 100) if prev_close != 0 else 0.0
 
         # Handle NaN values
         if pd.isna(latest_sma) or latest_sma == 0:
@@ -150,6 +152,7 @@ def calculate_all_indicators(df: pd.DataFrame, config: ScreenerConfig) -> dict[s
             "sma": _safe_float(latest_sma),
             "price_vs_sma200": price_vs_sma,
             "close": float(latest_close),
+            "change_pct": round(change_pct, 2),
             "history_close_30d": [round(float(x), 2) for x in df["Close"].tail(30).tolist()],
         }
 

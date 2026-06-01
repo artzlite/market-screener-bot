@@ -64,6 +64,10 @@ def _format_ticker_row(result: ScreenerResult, strategy_name: str) -> list[dict]
 
     indicators_text = "\n".join(indicator_parts) if indicator_parts else "—"
 
+    change_pct = vals.get("change_pct", 0.0)
+    change_color = "#27AE60" if change_pct >= 0 else "#E74C3C"
+    change_text = f"{change_pct:+.2f}%"
+
     left_col = {
         "type": "box",
         "layout": "vertical",
@@ -75,6 +79,7 @@ def _format_ticker_row(result: ScreenerResult, strategy_name: str) -> list[dict]
                 "contents": [
                     {"type": "text", "text": result.ticker, "weight": "bold", "size": "sm", "flex": 1},
                     {"type": "text", "text": f"${result.close_price:.2f}", "size": "sm", "align": "start", "flex": 1},
+                    {"type": "text", "text": change_text, "size": "sm", "align": "end", "color": change_color, "flex": 1},
                 ],
             },
             {
@@ -111,17 +116,22 @@ def _format_ticker_row(result: ScreenerResult, strategy_name: str) -> list[dict]
     ]
 
 
-def format_strategy_bubble(strategy_name: str, results: list[ScreenerResult], max_tickers: int = 10) -> dict:
+def format_strategy_bubble(
+    display_name: str,
+    display_results: list[ScreenerResult],
+    total_count: int,
+    show_more_count: int = 0,
+) -> dict:
     """Build a Flex Message bubble for one strategy's results."""
-    color = _get_strategy_color(strategy_name)
-    emoji = _get_signal_emoji(strategy_name)
+    color = _get_strategy_color(display_name)
+    emoji = _get_signal_emoji(display_name)
 
     # Header
     header = {
         "type": "box",
         "layout": "vertical",
         "contents": [
-            {"type": "text", "text": f"{emoji} {strategy_name}", "color": "#FFFFFF", "weight": "bold", "size": "md"},
+            {"type": "text", "text": f"{emoji} {display_name}", "color": "#FFFFFF", "weight": "bold", "size": "md"},
         ],
         "backgroundColor": color,
         "paddingAll": "15px",
@@ -129,18 +139,17 @@ def format_strategy_bubble(strategy_name: str, results: list[ScreenerResult], ma
 
     # Body - ticker rows
     body_contents: list[dict] = []
-    display_results = results[:max_tickers]
 
     for i, result in enumerate(display_results):
         if i > 0:
             body_contents.append({"type": "separator", "margin": "sm"})
-        body_contents.extend(_format_ticker_row(result, strategy_name))
+        body_contents.extend(_format_ticker_row(result, display_name))
 
-    if len(results) > max_tickers:
+    if show_more_count > 0:
         body_contents.append({"type": "separator", "margin": "sm"})
         body_contents.append({
             "type": "text",
-            "text": f"... and {len(results) - max_tickers} more",
+            "text": f"... and {show_more_count} more",
             "size": "xs",
             "color": "#8C8C8C",
             "margin": "sm",
@@ -161,7 +170,7 @@ def format_strategy_bubble(strategy_name: str, results: list[ScreenerResult], ma
         "contents": [
             {
                 "type": "text",
-                "text": f"{len(results)} ticker{'s' if len(results) != 1 else ''} matched",
+                "text": f"{total_count} ticker{'s' if total_count != 1 else ''} matched",
                 "size": "xs",
                 "color": "#8C8C8C",
                 "align": "center",
@@ -179,23 +188,49 @@ def format_strategy_bubble(strategy_name: str, results: list[ScreenerResult], ma
     }
 
 
-def format_summary_bubble(total_tickers: int, strategy_results: dict[str, list[ScreenerResult]]) -> dict:
+def format_summary_bubble(
+    total_tickers: int,
+    strategy_results: dict[str, list[ScreenerResult]],
+    etf_list: list[str],
+) -> dict:
     """Build a summary bubble showing screening overview."""
     now = datetime.now(ICT)
     total_signals = sum(len(results) for results in strategy_results.values())
 
     strategy_lines: list[dict] = []
     for name, results in strategy_results.items():
+        stocks = [r for r in results if r.ticker not in etf_list]
+        etfs = [r for r in results if r.ticker in etf_list]
         emoji = _get_signal_emoji(name)
-        count = len(results)
-        strategy_lines.append({
-            "type": "box",
-            "layout": "horizontal",
-            "contents": [
-                {"type": "text", "text": f"{emoji} {name}", "size": "xs", "flex": 4, "wrap": True},
-                {"type": "text", "text": str(count), "size": "xs", "align": "end", "flex": 1, "weight": "bold"},
-            ],
-        })
+        
+        if stocks or etfs:
+            if stocks:
+                strategy_lines.append({
+                    "type": "box",
+                    "layout": "horizontal",
+                    "contents": [
+                        {"type": "text", "text": f"{emoji} {name} - Stocks", "size": "xs", "flex": 4, "wrap": True},
+                        {"type": "text", "text": str(len(stocks)), "size": "xs", "align": "end", "flex": 1, "weight": "bold"},
+                    ],
+                })
+            if etfs:
+                strategy_lines.append({
+                    "type": "box",
+                    "layout": "horizontal",
+                    "contents": [
+                        {"type": "text", "text": f"{emoji} {name} - ETFs", "size": "xs", "flex": 4, "wrap": True},
+                        {"type": "text", "text": str(len(etfs)), "size": "xs", "align": "end", "flex": 1, "weight": "bold"},
+                    ],
+                })
+        else:
+            strategy_lines.append({
+                "type": "box",
+                "layout": "horizontal",
+                "contents": [
+                    {"type": "text", "text": f"{emoji} {name}", "size": "xs", "flex": 4, "wrap": True},
+                    {"type": "text", "text": "0", "size": "xs", "align": "end", "flex": 1, "weight": "bold"},
+                ],
+            })
 
     return {
         "type": "bubble",
@@ -264,15 +299,17 @@ def format_summary_bubble(total_tickers: int, strategy_results: dict[str, list[S
 def build_flex_messages(
     strategy_results: dict[str, list[ScreenerResult]],
     total_tickers: int,
+    etf_list: list[str],
 ) -> list[dict]:
     """Build complete Flex Message payloads for LINE.
 
-    Creates a carousel with a summary bubble + one bubble per strategy with matches.
+    Creates a carousel with a summary bubble + up to 2 bubbles per strategy/asset type with matches.
     Splits into multiple messages if exceeding LINE's 12-bubble carousel limit.
 
     Args:
         strategy_results: Dict of strategy name -> matched tickers.
         total_tickers: Total number of tickers screened.
+        etf_list: List of ETF tickers to distinguish stocks vs ETFs.
 
     Returns:
         List of Flex Message dicts ready to send via LINE API.
@@ -280,12 +317,33 @@ def build_flex_messages(
     bubbles: list[dict] = []
 
     # Summary bubble first
-    bubbles.append(format_summary_bubble(total_tickers, strategy_results))
+    bubbles.append(format_summary_bubble(total_tickers, strategy_results, etf_list))
 
-    # Strategy bubbles (only for strategies with matches)
+    # Strategy bubbles (split into Stocks and ETFs, up to 2 bubbles each)
     for name, results in strategy_results.items():
-        if results:
-            bubbles.append(format_strategy_bubble(name, results))
+        if not results:
+            continue
+
+        stocks = [r for r in results if r.ticker not in etf_list]
+        etfs = [r for r in results if r.ticker in etf_list]
+
+        for asset_type, asset_results in [("Stocks", stocks), ("ETFs", etfs)]:
+            if not asset_results:
+                continue
+
+            total_count = len(asset_results)
+            if total_count <= 10:
+                display_name = f"{name} - {asset_type}"
+                bubbles.append(format_strategy_bubble(display_name, asset_results, total_count))
+            else:
+                # Bubble 1 (1/2): first 10
+                display_name_1 = f"{name} - {asset_type} (1/2)"
+                bubbles.append(format_strategy_bubble(display_name_1, asset_results[:10], total_count))
+                
+                # Bubble 2 (2/2): next 10, plus show_more_count if total_count > 20
+                display_name_2 = f"{name} - {asset_type} (2/2)"
+                show_more_count = max(0, total_count - 20)
+                bubbles.append(format_strategy_bubble(display_name_2, asset_results[10:20], total_count, show_more_count))
 
     # Split into chunks of 12 (LINE carousel limit)
     messages: list[dict] = []

@@ -108,7 +108,7 @@ def main() -> None:
         total_signals = sum(len(r) for r in strategy_results.values())
         logger.info("Total signals found: %d", total_signals)
 
-        flex_messages = build_flex_messages(strategy_results, len(daily_indicators))
+        flex_messages = build_flex_messages(strategy_results, len(daily_indicators), config.etf_list)
 
         logger.info("Sending %d LINE message(s)...", len(flex_messages))
         notifier.send_flex_messages(flex_messages)
