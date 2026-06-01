@@ -113,7 +113,7 @@ market-screener-bot/
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/market-screener-bot.git
+git clone https://github.com/artzlite/market-screener-bot.git
 cd market-screener-bot
 
 # Create virtual environment
