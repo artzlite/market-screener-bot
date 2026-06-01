@@ -29,7 +29,9 @@ def _build_quickchart_url(prices: list[float]) -> str:
     """Generate a QuickChart sparkline URL for the price history."""
     if not prices:
         return ""
-    data_str = "[" + ",".join(str(p) for p in prices) + "]"
+    # Slice to last 15 days to save URL space and round to 1 decimal place
+    recent_prices = prices[-15:]
+    data_str = "[" + ",".join(f"{p:.1f}" for p in recent_prices) + "]"
     chart_json = f"{{type:'sparkline',data:{{datasets:[{{data:{data_str},borderColor:'rgba(74,144,226,1)',fill:false}}]}}}}"
     encoded = urllib.parse.quote(chart_json)
     return f"https://quickchart.io/chart?c={encoded}&w=300&h=100"
@@ -345,10 +347,10 @@ def build_flex_messages(
                 show_more_count = max(0, total_count - 20)
                 bubbles.append(format_strategy_bubble(display_name_2, asset_results[10:20], total_count, show_more_count))
 
-    # Split into chunks of 12 (LINE carousel limit)
+    # Split into chunks of 4 (LINE carousel limit is 12, but we limit to 4 to stay well under 50 KB size limit)
     messages: list[dict] = []
-    for i in range(0, len(bubbles), 12):
-        chunk = bubbles[i : i + 12]
+    for i in range(0, len(bubbles), 4):
+        chunk = bubbles[i : i + 4]
         messages.append({
             "type": "flex",
             "altText": "📊 Daily Stock Screener Results",
