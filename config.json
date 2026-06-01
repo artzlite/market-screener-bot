@@ -5,9 +5,21 @@
       "description": "Oversold on daily with uptrend filter",
       "timeframe": "daily",
       "rules": [
-        {"indicator": "stochastic_k", "operator": "<", "value": 30},
-        {"indicator": "rsi", "operator": "<", "value": 30},
-        {"indicator": "price_vs_sma200", "operator": ">", "value": 0}
+        {
+          "indicator": "stochastic_k",
+          "operator": "<",
+          "value": 30
+        },
+        {
+          "indicator": "rsi",
+          "operator": "<",
+          "value": 30
+        },
+        {
+          "indicator": "price_vs_sma200",
+          "operator": ">",
+          "value": 0
+        }
       ]
     },
     {
@@ -15,33 +27,50 @@
       "description": "Weekly oversold confirmation",
       "timeframe": "weekly",
       "rules": [
-        {"indicator": "stochastic_k", "operator": "<", "value": 30},
-        {"indicator": "rsi", "operator": "<", "value": 40}
-      ]
-    },
-    {
-      "name": "MACD Bullish Crossover",
-      "description": "Daily MACD line crosses above signal",
-      "timeframe": "daily",
-      "rules": [
-        {"indicator": "macd_crossover", "operator": "==", "value": 1},
-        {"indicator": "price_vs_sma200", "operator": ">", "value": 0}
-      ]
-    },
-    {
-      "name": "Overbought Alert (Daily)",
-      "description": "Overbought on daily timeframe",
-      "timeframe": "daily",
-      "rules": [
-        {"indicator": "stochastic_k", "operator": ">", "value": 70},
-        {"indicator": "rsi", "operator": ">", "value": 70}
+        {
+          "indicator": "stochastic_k",
+          "operator": "<",
+          "value": 30
+        },
+        {
+          "indicator": "rsi",
+          "operator": "<",
+          "value": 40
+        }
       ]
     }
   ],
   "etf_list": [
-    "SPY", "QQQ", "IWM", "DIA", "XLF", "XLE", "XLK", "XLV", "XLI", "XLP",
-    "XLU", "XLB", "XLRE", "XLC", "XLY", "GLD", "SLV", "TLT", "HYG", "VNQ",
-    "EEM", "EFA", "ARKK", "SOXX", "SMH", "IBB", "KRE", "XBI", "KWEB", "VTI"
+    "SPY",
+    "QQQ",
+    "IWM",
+    "DIA",
+    "XLF",
+    "XLE",
+    "XLK",
+    "XLV",
+    "XLI",
+    "XLP",
+    "XLU",
+    "XLB",
+    "XLRE",
+    "XLC",
+    "XLY",
+    "GLD",
+    "SLV",
+    "TLT",
+    "HYG",
+    "VNQ",
+    "EEM",
+    "EFA",
+    "ARKK",
+    "SOXX",
+    "SMH",
+    "IBB",
+    "KRE",
+    "XBI",
+    "KWEB",
+    "VTI"
   ],
   "data_period": "1y",
   "stochastic_k_period": 14,

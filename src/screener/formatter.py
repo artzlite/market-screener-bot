@@ -29,8 +29,8 @@ def _build_quickchart_url(prices: list[float]) -> str:
     """Generate a QuickChart sparkline URL for the price history."""
     if not prices:
         return ""
-    # Slice to last 90 days to save URL space and round to 1 decimal place
-    recent_prices = prices[-90:]
+    # Slice to last 30 days to save URL space and round to 1 decimal place
+    recent_prices = prices[-30:]
     data_str = "[" + ",".join(f"{p:.1f}" for p in recent_prices) + "]"
     chart_json = f"{{type:'sparkline',data:{{datasets:[{{data:{data_str},borderColor:'rgba(74,144,226,1)',fill:false}}]}}}}"
     encoded = urllib.parse.quote(chart_json)
