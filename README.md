@@ -147,20 +147,29 @@ python -m screener.main
 2. **Add GitHub Secrets**
    - Go to your repository → **Settings** → **Secrets and variables** → **Actions**
    - Click **New repository secret** and add:
-     - Name: `LINE_CHANNEL_ACCESS_TOKEN` → Value: your token
-     - Name: `LINE_USER_ID` → Value: your user ID
+     - Name: `LINE_CHANNEL_ACCESS_TOKEN` → Value: your token (**required**)
+     - Name: `LINE_USER_ID` → Value: your user ID (**optional** — only needed when `LINE_BROADCAST_ENABLED=false`)
 
 3. **Test the workflow**
    - Go to **Actions** tab → **Daily Stock Screener** → **Run workflow**
    - Check the run logs and your LINE app for the message
 
-4. **Done!** The bot will now run automatically every weekday at 9:00 AM ICT.
+4. **Done!** The bot will now run automatically every weekday at 9:00 AM ICT, broadcasting to all LINE Official Account followers.
 
 ---
 
 ## ⚙️ Configuration
 
 All settings are in [`config.json`](config.json). You can customize strategies, indicators, and ticker lists without touching Python code.
+
+### Environment Variables
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `LINE_CHANNEL_ACCESS_TOKEN` | ✅ always | — | Channel access token from LINE Developer Console |
+| `LINE_BROADCAST_ENABLED` | ❌ | `true` | Use Broadcast API (sends to all followers). Set `false` to fall back to Push API |
+| `LINE_USER_ID` | ⚠️ push only | — | LINE user ID; required **only** when `LINE_BROADCAST_ENABLED=false` |
+| `LINE_NOTIFY_ENABLED` | ❌ | `true` | Set `false` to disable all LINE notifications (dry-run / local testing) |
 
 ### Strategy Configuration
 
@@ -256,11 +265,13 @@ pytest tests/test_indicators.py -v
 
 | Issue | Solution |
 |---|---|
-| **No LINE message received** | Verify you added the bot as a friend. Check `LINE_USER_ID` is correct. |
+| **No LINE message received (broadcast)** | Ensure followers have added the Official Account as a friend. Check `LINE_BROADCAST_ENABLED=true`. |
+| **No LINE message received (push)** | Verify `LINE_USER_ID` is correct and you added the bot as a friend. |
 | **yfinance download fails** | yfinance depends on Yahoo Finance. Retry or reduce batch size. |
 | **"Non-trading day" every day** | Check your timezone settings. The bot uses NYSE calendar. |
 | **GitHub Actions not running** | Ensure the workflow file is on the `main` branch. Check Actions tab is enabled. |
 | **Too many/few signals** | Adjust thresholds in `config.json` (e.g., change RSI < 30 to RSI < 35). |
+| **Follower count shows N/A** | The insight API may be temporarily unavailable; broadcast still proceeds normally. |
 
 ### Checking Logs
 

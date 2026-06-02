@@ -153,9 +153,9 @@ class TestCalculateAllIndicators:
         result = calculate_all_indicators(sample_ohlcv_data, default_config)
         assert result is not None
         expected_keys = {
-            "stochastic_k", "stochastic_k_5d", "stochastic_d", "rsi", "rsi_5d", 
-            "macd_line", "macd_signal", "macd_histogram", "macd_crossover", 
-            "sma", "price_vs_sma200", "close", "history_close_30d",
+            "stochastic_k", "stochastic_k_5d", "stochastic_d", "rsi", "rsi_5d",
+            "macd_line", "macd_signal", "macd_histogram", "macd_crossover",
+            "sma", "price_vs_sma200", "close", "history_close_30d", "change_pct",
         }
         assert set(result.keys()) == expected_keys
 

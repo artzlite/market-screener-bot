@@ -2,7 +2,7 @@ name: Daily Stock Screener
 
 on:
   schedule:
-    - cron: '0 2 * * 1-5'  # 9:00 AM ICT (UTC+7), Mon-Fri
+    - cron: '18 3 * * 1-5'  # 10:18 AM ICT (UTC+7), Mon-Fri
   workflow_dispatch:  # Manual trigger for testing
 
 jobs:
@@ -27,5 +27,6 @@ jobs:
         working-directory: src
         env:
           LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
-          LINE_USER_ID: ${{ secrets.LINE_USER_ID }}
+          LINE_BROADCAST_ENABLED: 'true'
+          LINE_USER_ID: ${{ secrets.LINE_USER_ID }}  # Optional: only needed when LINE_BROADCAST_ENABLED=false
         run: python -m screener.main
