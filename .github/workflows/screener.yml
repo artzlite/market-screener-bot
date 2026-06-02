@@ -2,7 +2,8 @@ name: Daily Stock Screener
 
 on:
   schedule:
-    - cron: '18 3 * * 1-5'  # 10:18 AM ICT (UTC+7), Mon-Fri
+    - cron: '33 10 * * 1-5'  # 10:33 AM ICT (UTC+7), Mon-Fri
+      timezone: "Asia/Bangkok"
   workflow_dispatch:  # Manual trigger for testing
 
 jobs:
