@@ -4,7 +4,7 @@ on:
   schedule:
     - cron: '33 10 * * 1-5'  # 10:33 AM ICT (UTC+7), Mon-Fri
       timezone: "Asia/Bangkok"
-  workflow_dispatch:  # Manual trigger for testing
+  # workflow_dispatch:  # Manual trigger for testing
 
 jobs:
   screen:
