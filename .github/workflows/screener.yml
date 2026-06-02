@@ -28,6 +28,6 @@ jobs:
         working-directory: src
         env:
           LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
-          LINE_BROADCAST_ENABLED: 'true'
+          LINE_BROADCAST_ENABLED: ${{ secrets.LINE_BROADCAST_ENABLED }}
           LINE_USER_ID: ${{ secrets.LINE_USER_ID }}  # Optional: only needed when LINE_BROADCAST_ENABLED=false
         run: python -m screener.main
