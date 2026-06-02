@@ -133,10 +133,16 @@ class TestGetFollowerStats:
         """Should return the parsed JSON dict when the API returns 200."""
         notifier = self._make_notifier(monkeypatch)
 
-        with patch("screener.notifier.requests.get", return_value=_make_response(200, FOLLOWERS_RESPONSE)):
+        with patch("screener.notifier.requests.get", return_value=_make_response(200, FOLLOWERS_RESPONSE)) as mock_get:
             result = notifier._get_follower_stats()
 
         assert result == FOLLOWERS_RESPONSE
+        mock_get.assert_called_once()
+        kwargs = mock_get.call_args.kwargs
+        assert "params" in kwargs
+        assert "date" in kwargs["params"]
+        assert len(kwargs["params"]["date"]) == 8
+        assert kwargs["params"]["date"].isdigit()
 
     def test_returns_none_on_non_200_status(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Should return None and log a warning when the API returns non-200."""

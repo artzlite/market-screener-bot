@@ -1,6 +1,7 @@
 import logging
 import os
 import time
+from datetime import datetime, timedelta, timezone
 
 import requests
 
@@ -124,7 +125,18 @@ class LineNotifier:
             ``None`` on any error.
         """
         try:
-            response = requests.get(LINE_FOLLOWERS_API_URL, headers=self._auth_headers(), timeout=10)
+            # The LINE Followers Insight API requires a date query parameter (yyyyMMdd).
+            # We query for yesterday's date in JST (UTC+9) timezone to ensure it's a completed day.
+            jst = timezone(timedelta(hours=9))
+            yesterday = (datetime.now(jst) - timedelta(days=1)).strftime("%Y%m%d")
+            params = {"date": yesterday}
+
+            response = requests.get(
+                LINE_FOLLOWERS_API_URL,
+                headers=self._auth_headers(),
+                params=params,
+                timeout=10,
+            )
 
             if response.status_code == 200:
                 data = response.json()
