@@ -1,3 +1,4 @@
+import json
 import logging
 import urllib.parse
 from datetime import datetime, timedelta, timezone
@@ -398,17 +399,46 @@ def build_flex_messages(
                 show_more_count = max(0, total_count - 20)
                 bubbles.append(format_strategy_bubble(display_name_2, asset_results[10:20], total_count, show_more_count))
 
-    # Split into chunks of 12 (LINE carousel limit)
+    alt_text = f"📊 {market_label} Screener Results" if market_label else "📊 Daily Stock Screener Results"
+    return _bubbles_to_messages(bubbles, alt_text)
+
+
+# LINE limits: a carousel may hold at most 12 bubbles, and the JSON that defines
+# a single flex message must be ≤ 50 KB. With sparkline images + news lines a full
+# 12-bubble carousel can exceed 50 KB, so we also split by serialized byte size.
+MAX_BUBBLES_PER_CAROUSEL = 10
+MAX_CAROUSEL_BYTES = 48_000  # margin under LINE's 50 KB hard limit
+
+
+def _carousel_message(bubbles: list[dict], alt_text: str) -> dict:
+    return {
+        "type": "flex",
+        "altText": alt_text,
+        "contents": {"type": "carousel", "contents": bubbles},
+    }
+
+
+def _message_bytes(bubbles: list[dict], alt_text: str) -> int:
+    payload = _carousel_message(bubbles, alt_text)
+    return len(json.dumps(payload, ensure_ascii=False).encode("utf-8"))
+
+
+def _bubbles_to_messages(bubbles: list[dict], alt_text: str) -> list[dict]:
+    """Pack bubbles into flex messages, honoring both the bubble-count and 50 KB limits."""
     messages: list[dict] = []
-    for i in range(0, len(bubbles), 12):
-        chunk = bubbles[i : i + 12]
-        messages.append({
-            "type": "flex",
-            "altText": "📊 Daily Stock Screener Results",
-            "contents": {
-                "type": "carousel",
-                "contents": chunk,
-            },
-        })
+    current: list[dict] = []
+
+    for bubble in bubbles:
+        candidate = current + [bubble]
+        too_many = len(candidate) > MAX_BUBBLES_PER_CAROUSEL
+        too_big = _message_bytes(candidate, alt_text) > MAX_CAROUSEL_BYTES
+        if current and (too_many or too_big):
+            messages.append(_carousel_message(current, alt_text))
+            current = [bubble]
+        else:
+            current = candidate
+
+    if current:
+        messages.append(_carousel_message(current, alt_text))
 
     return messages
