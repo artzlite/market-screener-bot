@@ -1,10 +1,10 @@
 import logging
+from io import StringIO
 
 import pandas as pd
 import requests
 
-from io import StringIO
-from screener.config import ScreenerConfig
+from screener.config import Market, ScreenerConfig
 
 logger = logging.getLogger(__name__)
 
@@ -68,3 +68,26 @@ def get_all_tickers(config: ScreenerConfig) -> list[str]:
     all_tickers = sorted(set(sp500 + etfs))
     logger.info("Total ticker universe: %d tickers (%d S&P 500 + %d ETFs)", len(all_tickers), len(sp500), len(etfs))
     return all_tickers
+
+
+def get_market_symbols(market: Market) -> list[str]:
+    """Resolve the symbol universe for a single market.
+
+    Dispatches on ``market.symbol_provider``:
+      - ``sp500-scrape``: live S&P 500 list merged with ``market.symbols`` (ETFs).
+      - ``symbol-list`` / ``set100-list``: the explicit ``market.symbols`` list.
+
+    SET50/SET100 use a config-maintained list (``set100-list``) rather than
+    scraping: SET constituents change only quarterly and there is no stable
+    machine-readable source, so a reviewable static list is more robust.
+
+    Returns:
+        Deduplicated, sorted list of symbols in the source's native format.
+    """
+    if market.symbol_provider == "sp500-scrape":
+        base = get_sp500_tickers()
+    else:
+        base = []
+    symbols = sorted(set(base + list(market.symbols)))
+    logger.info("Market '%s': %d symbols", market.id, len(symbols))
+    return symbols

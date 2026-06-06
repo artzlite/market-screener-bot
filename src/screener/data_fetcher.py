@@ -1,19 +1,15 @@
 import logging
 
 import pandas as pd
-import yfinance as yf
 
-from screener.config import ScreenerConfig
+from screener.config import Market
+from screener.sources import binance_source, yfinance_source
 
 logger = logging.getLogger(__name__)
 
-BATCH_SIZE = 50
-
 
 def fetch_daily_data(tickers: list[str], period: str = "1y") -> dict[str, pd.DataFrame]:
-    """Download daily OHLCV data for all tickers using yfinance.
-
-    Downloads in batches for reliability. Tickers that fail are skipped with a warning.
+    """Download daily OHLCV data via yfinance (backward-compatible wrapper).
 
     Args:
         tickers: List of ticker symbols.
@@ -22,44 +18,33 @@ def fetch_daily_data(tickers: list[str], period: str = "1y") -> dict[str, pd.Dat
     Returns:
         Dict mapping ticker symbol to its OHLCV DataFrame.
     """
-    result: dict[str, pd.DataFrame] = {}
+    return yfinance_source.fetch(tickers, period)
 
-    for i in range(0, len(tickers), BATCH_SIZE):
-        batch = tickers[i:i + BATCH_SIZE]
-        batch_str = " ".join(batch)
-        logger.info(
-            "Downloading batch %d/%d (%d tickers)",
-            i // BATCH_SIZE + 1,
-            (len(tickers) + BATCH_SIZE - 1) // BATCH_SIZE,
-            len(batch),
+
+def fetch_market_data(
+    market: Market,
+    symbols: list[str],
+    period: str = "1y",
+    binance_base_url: str = "https://data-api.binance.vision",
+    binance_market: str = "spot",
+) -> dict[str, pd.DataFrame]:
+    """Fetch OHLCV for a market's symbols using the market's configured source.
+
+    Args:
+        market: The market whose ``source`` selects the fetcher.
+        symbols: Resolved symbol list for this market.
+        period: Data period.
+        binance_base_url: Base URL for the Binance source.
+        binance_market: "spot" or "futures" for the Binance source.
+
+    Returns:
+        Dict mapping symbol to its OHLCV DataFrame.
+    """
+    if market.source == "binance":
+        return binance_source.fetch(
+            symbols, period=period, base_url=binance_base_url, market=binance_market
         )
-
-        try:
-            data = yf.download(
-                batch_str, period=period, group_by="ticker", auto_adjust=True, progress=False, threads=True
-            )
-
-            if len(batch) == 1:
-                # Single ticker handling
-                ticker = batch[0]
-                if isinstance(data.columns, pd.MultiIndex):
-                    data.columns = data.columns.get_level_values(0)
-                if not data.empty:
-                    result[ticker] = data.dropna(how="all")
-            else:
-                # Multiple tickers: data is grouped by ticker
-                for ticker in batch:
-                    try:
-                        ticker_data = data[ticker].dropna(how="all")
-                        if not ticker_data.empty:
-                            result[ticker] = ticker_data
-                    except KeyError:
-                        logger.warning("No data returned for %s", ticker)
-        except Exception as e:
-            logger.warning("Batch download failed: %s", e)
-
-    logger.info("Successfully downloaded data for %d/%d tickers", len(result), len(tickers))
-    return result
+    return yfinance_source.fetch(symbols, period)
 
 
 def resample_to_weekly(daily_data: dict[str, pd.DataFrame]) -> dict[str, pd.DataFrame]:

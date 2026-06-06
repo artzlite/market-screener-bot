@@ -1,13 +1,17 @@
 """Tests for technical indicator calculations."""
 
-import numpy as np
 import pandas as pd
 import pytest
 
 from screener.indicators import (
+    calculate_adx,
     calculate_all_indicators,
+    calculate_atr,
+    calculate_bollinger,
     calculate_macd,
+    calculate_roc,
     calculate_rsi,
+    calculate_rvol,
     calculate_sma,
     calculate_stochastic,
 )
@@ -145,6 +149,43 @@ class TestSMA:
         assert result.name == "sma"
 
 
+class TestNewIndicators:
+    """Tests for the volume / momentum / breakout indicators."""
+
+    def test_rvol_excludes_current_bar(self, sample_ohlcv_data: pd.DataFrame) -> None:
+        """RVOL baseline must exclude the current bar (no look-ahead)."""
+        result = calculate_rvol(sample_ohlcv_data, period=20)
+        # Manually compute the expected ratio for the last bar.
+        avg = sample_ohlcv_data["Volume"].iloc[-21:-1].mean()
+        expected = sample_ohlcv_data["Volume"].iloc[-1] / avg
+        assert result.iloc[-1] == pytest.approx(expected, rel=1e-6)
+
+    def test_rvol_is_positive(self, sample_ohlcv_data: pd.DataFrame) -> None:
+        result = calculate_rvol(sample_ohlcv_data).dropna()
+        assert (result > 0).all()
+
+    def test_atr_is_non_negative(self, sample_ohlcv_data: pd.DataFrame) -> None:
+        result = calculate_atr(sample_ohlcv_data).dropna()
+        assert (result >= 0).all()
+
+    def test_roc_matches_formula(self, sample_ohlcv_data: pd.DataFrame) -> None:
+        result = calculate_roc(sample_ohlcv_data, period=12)
+        close = sample_ohlcv_data["Close"]
+        expected = (close.iloc[-1] / close.iloc[-13] - 1) * 100
+        assert result.iloc[-1] == pytest.approx(expected, rel=1e-6)
+
+    def test_bollinger_width_non_negative(self, sample_ohlcv_data: pd.DataFrame) -> None:
+        result = calculate_bollinger(sample_ohlcv_data)
+        width = result["bb_width"].dropna()
+        assert (width >= 0).all()
+        assert (result["bb_upper"].dropna() >= result["bb_lower"].dropna()).all()
+
+    def test_adx_range_is_0_to_100(self, sample_ohlcv_data: pd.DataFrame) -> None:
+        result = calculate_adx(sample_ohlcv_data).dropna()
+        assert (result >= 0).all()
+        assert (result <= 100).all()
+
+
 class TestCalculateAllIndicators:
     """Tests for the combined indicator calculation function."""
 
@@ -156,6 +197,8 @@ class TestCalculateAllIndicators:
             "stochastic_k", "stochastic_k_5d", "stochastic_d", "rsi", "rsi_5d",
             "macd_line", "macd_signal", "macd_histogram", "macd_crossover",
             "sma", "price_vs_sma200", "close", "history_close_30d", "change_pct",
+            "sma50", "rvol", "atr", "roc", "bb_upper", "bb_lower", "bb_width",
+            "adx", "dist_52w_high", "dist_52w_low", "golden_cross",
         }
         assert set(result.keys()) == expected_keys
 

@@ -2,8 +2,8 @@
 
 import pytest
 
-from screener.config import Rule, Strategy, ScreenerConfig
-from screener.strategies import ScreenerResult, evaluate_rule, evaluate_strategy, run_screener
+from screener.config import Rule, ScreenerConfig, Strategy
+from screener.strategies import evaluate_rule, evaluate_strategy, run_screener
 
 
 class TestEvaluateRule:
@@ -220,6 +220,49 @@ class TestRunScreener:
         results = run_screener(daily_indicators, {}, config)
         tickers = [r.ticker for r in results["Test"]]
         assert tickers == ["AAPL", "MSFT", "TSLA"]
+
+    def test_new_indicator_rules_evaluate(self) -> None:
+        """Strategies referencing new indicator keys should match correctly."""
+        config = ScreenerConfig(
+            strategies=[
+                Strategy(
+                    name="Golden Cross",
+                    description="",
+                    timeframe="daily",
+                    rules=[
+                        Rule(indicator="golden_cross", operator="==", value=1),
+                        Rule(indicator="adx", operator=">=", value=20),
+                    ],
+                ),
+            ],
+            etf_list=[],
+        )
+        daily = {
+            "AAA": {"golden_cross": 1.0, "adx": 30.0, "close": 10.0, "change_pct": 1.0},
+            "BBB": {"golden_cross": 0.0, "adx": 30.0, "close": 10.0, "change_pct": 1.0},
+            "CCC": {"golden_cross": 1.0, "adx": 10.0, "close": 10.0, "change_pct": 1.0},
+        }
+        results = run_screener(daily, {}, config)
+        tickers = [r.ticker for r in results["Golden Cross"]]
+        assert tickers == ["AAA"]
+
+    def test_strategy_with_markets_field_runs(self) -> None:
+        """A Strategy carrying a markets scope still evaluates normally in run_screener."""
+        config = ScreenerConfig(
+            strategies=[
+                Strategy(
+                    name="Scoped",
+                    description="",
+                    timeframe="daily",
+                    rules=[Rule(indicator="rsi", operator="<", value=50)],
+                    markets=["crypto"],
+                ),
+            ],
+            etf_list=[],
+        )
+        daily = {"AAA": {"rsi": 25.0, "close": 10.0, "change_pct": 0.0}}
+        results = run_screener(daily, {}, config)
+        assert len(results["Scoped"]) == 1
 
     def test_screener_result_contains_indicator_values(self) -> None:
         """ScreenerResult should contain the ticker's indicator values."""

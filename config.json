@@ -5,21 +5,9 @@
       "description": "Oversold on daily with uptrend filter",
       "timeframe": "daily",
       "rules": [
-        {
-          "indicator": "stochastic_k",
-          "operator": "<",
-          "value": 30
-        },
-        {
-          "indicator": "rsi",
-          "operator": "<",
-          "value": 30
-        },
-        {
-          "indicator": "price_vs_sma200",
-          "operator": ">",
-          "value": 0
-        }
+        {"indicator": "stochastic_k", "operator": "<", "value": 30},
+        {"indicator": "rsi", "operator": "<", "value": 30},
+        {"indicator": "price_vs_sma200", "operator": ">", "value": 1}
       ]
     },
     {
@@ -27,57 +15,137 @@
       "description": "Weekly oversold confirmation",
       "timeframe": "weekly",
       "rules": [
-        {
-          "indicator": "stochastic_k",
-          "operator": "<",
-          "value": 30
-        },
-        {
-          "indicator": "rsi",
-          "operator": "<",
-          "value": 40
-        }
+        {"indicator": "stochastic_k", "operator": "<", "value": 30},
+        {"indicator": "rsi", "operator": "<", "value": 40}
+      ]
+    },
+    {
+      "name": "Golden Cross (Daily)",
+      "description": "SMA50 crosses above SMA200 with trend confirmation",
+      "timeframe": "daily",
+      "markets": ["us_stocks", "thai", "crypto"],
+      "rules": [
+        {"indicator": "golden_cross", "operator": "==", "value": 1},
+        {"indicator": "adx", "operator": ">=", "value": 20}
+      ]
+    },
+    {
+      "name": "Volume Surge (Daily)",
+      "description": "Unusual volume with positive momentum",
+      "timeframe": "daily",
+      "rules": [
+        {"indicator": "rvol", "operator": ">=", "value": 3},
+        {"indicator": "roc", "operator": ">", "value": 0}
+      ]
+    },
+    {
+      "name": "52-Week Breakout (Daily)",
+      "description": "Price near 52-week high with a strong trend",
+      "timeframe": "daily",
+      "markets": ["us_stocks", "thai", "crypto"],
+      "rules": [
+        {"indicator": "dist_52w_high", "operator": ">=", "value": -1},
+        {"indicator": "adx", "operator": ">=", "value": 20}
+      ]
+    },
+    {
+      "name": "Bollinger Squeeze (Daily)",
+      "description": "Low volatility squeeze breaking out to the upside",
+      "timeframe": "daily",
+      "rules": [
+        {"indicator": "bb_width", "operator": "<=", "value": 0.08},
+        {"indicator": "roc", "operator": ">", "value": 0}
+      ]
+    },
+    {
+      "name": "Overbought Alert (Daily)",
+      "description": "Overbought on daily timeframe (sell signal)",
+      "timeframe": "daily",
+      "rules": [
+        {"indicator": "stochastic_k", "operator": ">", "value": 80},
+        {"indicator": "rsi", "operator": ">", "value": 70}
+      ]
+    }
+  ],
+  "markets": [
+    {
+      "id": "us_stocks",
+      "display_name": "US Stocks & ETFs",
+      "source": "yfinance",
+      "calendar": "XNYS",
+      "symbol_provider": "sp500-scrape",
+      "timezone_offset": 7,
+      "symbols": [
+        "SPY", "QQQ", "IWM", "DIA", "XLF", "XLE", "XLK", "XLV", "XLI", "XLP",
+        "XLU", "XLB", "XLRE", "XLC", "XLY", "GLD", "SLV", "TLT", "HYG", "VNQ",
+        "EEM", "EFA", "ARKK", "SOXX", "SMH", "IBB", "KRE", "XBI", "KWEB", "VTI"
+      ]
+    },
+    {
+      "id": "crypto",
+      "display_name": "Crypto",
+      "source": "binance",
+      "calendar": "24-7",
+      "symbol_provider": "symbol-list",
+      "timezone_offset": 7,
+      "asset_type": "Crypto",
+      "symbols": [
+        "BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT", "ADAUSDT",
+        "DOGEUSDT", "AVAXUSDT", "LINKUSDT", "LTCUSDT", "DOTUSDT", "TRXUSDT"
+      ]
+    },
+    {
+      "id": "thai",
+      "display_name": "Thai SET50",
+      "source": "yfinance",
+      "calendar": "XBKK",
+      "symbol_provider": "set100-list",
+      "timezone_offset": 7,
+      "asset_type": "Thai",
+      "symbols": [
+        "PTT.BK", "PTTEP.BK", "AOT.BK", "KBANK.BK", "SCB.BK", "BBL.BK", "KTB.BK",
+        "CPALL.BK", "CPN.BK", "ADVANC.BK", "INTUCH.BK", "TRUE.BK", "GULF.BK",
+        "SCC.BK", "BDMS.BK", "BH.BK", "MINT.BK", "CRC.BK", "HMPRO.BK", "GPSC.BK",
+        "EA.BK", "KCE.BK", "DELTA.BK", "BANPU.BK", "TOP.BK"
+      ]
+    },
+    {
+      "id": "commodities",
+      "display_name": "Commodities & FX",
+      "source": "yfinance",
+      "calendar": "XNYS",
+      "symbol_provider": "symbol-list",
+      "timezone_offset": 7,
+      "asset_type": "FX/Cmdty",
+      "symbols": [
+        "GC=F", "SI=F", "CL=F", "NG=F", "HG=F",
+        "EURUSD=X", "GBPUSD=X", "USDJPY=X", "USDTHB=X"
       ]
     }
   ],
   "etf_list": [
-    "SPY",
-    "QQQ",
-    "IWM",
-    "DIA",
-    "XLF",
-    "XLE",
-    "XLK",
-    "XLV",
-    "XLI",
-    "XLP",
-    "XLU",
-    "XLB",
-    "XLRE",
-    "XLC",
-    "XLY",
-    "GLD",
-    "SLV",
-    "TLT",
-    "HYG",
-    "VNQ",
-    "EEM",
-    "EFA",
-    "ARKK",
-    "SOXX",
-    "SMH",
-    "IBB",
-    "KRE",
-    "XBI",
-    "KWEB",
-    "VTI"
+    "SPY", "QQQ", "IWM", "DIA", "XLF", "XLE", "XLK", "XLV", "XLI", "XLP",
+    "XLU", "XLB", "XLRE", "XLC", "XLY", "GLD", "SLV", "TLT", "HYG", "VNQ",
+    "EEM", "EFA", "ARKK", "SOXX", "SMH", "IBB", "KRE", "XBI", "KWEB", "VTI"
   ],
-  "data_period": "1y",
+  "data_period": "2y",
   "stochastic_k_period": 14,
   "stochastic_d_period": 3,
   "rsi_period": 14,
   "macd_fast": 12,
   "macd_slow": 26,
   "macd_signal": 9,
-  "sma_period": 200
+  "sma_period": 200,
+  "sma_short_period": 50,
+  "rvol_period": 20,
+  "atr_period": 14,
+  "roc_period": 12,
+  "bb_period": 20,
+  "bb_std": 2.0,
+  "adx_period": 14,
+  "high_low_period": 252,
+  "news_enabled": true,
+  "news_count": 2,
+  "binance_base_url": "https://data-api.binance.vision",
+  "binance_market": "spot"
 }

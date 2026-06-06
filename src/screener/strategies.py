@@ -1,9 +1,9 @@
 import logging
 import operator
-from dataclasses import dataclass
-from typing import Callable
+from collections.abc import Callable
+from dataclasses import dataclass, field
 
-from screener.config import Rule, Strategy, ScreenerConfig
+from screener.config import Rule, ScreenerConfig, Strategy
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +23,7 @@ class ScreenerResult:
     ticker: str
     close_price: float
     indicator_values: dict[str, float | None]
+    headlines: list[dict] = field(default_factory=list)
 
 
 def evaluate_rule(indicator_values: dict[str, float | None], rule: Rule) -> bool:

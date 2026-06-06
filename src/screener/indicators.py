@@ -108,6 +108,144 @@ def calculate_sma(df: pd.DataFrame, period: int = 200) -> pd.Series:
     return sma
 
 
+def calculate_rvol(df: pd.DataFrame, period: int = 20) -> pd.Series:
+    """Relative volume: current volume vs the trailing average (excluding today).
+
+    Uses ``.shift(1)`` on the rolling mean so the current bar is not part of its
+    own baseline (avoids look-ahead).
+
+    Args:
+        df: DataFrame with a 'Volume' column.
+        period: Lookback for the average volume.
+
+    Returns:
+        Series of relative-volume ratios (e.g. 2.0 = twice the average).
+    """
+    avg_volume = df["Volume"].rolling(window=period).mean().shift(1)
+    rvol = df["Volume"] / avg_volume
+    rvol.name = "rvol"
+    return rvol
+
+
+def calculate_atr(df: pd.DataFrame, period: int = 14) -> pd.Series:
+    """Average True Range using Wilder's smoothing.
+
+    Args:
+        df: DataFrame with 'High', 'Low', 'Close' columns.
+        period: ATR lookback period.
+
+    Returns:
+        Series with ATR values.
+    """
+    high = df["High"]
+    low = df["Low"]
+    prev_close = df["Close"].shift(1)
+
+    tr = pd.concat([
+        high - low,
+        (high - prev_close).abs(),
+        (low - prev_close).abs(),
+    ], axis=1).max(axis=1)
+
+    atr = tr.ewm(alpha=1 / period, min_periods=period, adjust=False).mean()
+    atr.name = "atr"
+    return atr
+
+
+def calculate_roc(df: pd.DataFrame, period: int = 12) -> pd.Series:
+    """Rate of Change (percentage) over ``period`` bars.
+
+    Args:
+        df: DataFrame with a 'Close' column.
+        period: Lookback period.
+
+    Returns:
+        Series of percentage change values.
+    """
+    roc = (df["Close"] / df["Close"].shift(period) - 1) * 100
+    roc.name = "roc"
+    return roc
+
+
+def calculate_bollinger(df: pd.DataFrame, period: int = 20, num_std: float = 2.0) -> pd.DataFrame:
+    """Bollinger Bands plus normalized band width.
+
+    Args:
+        df: DataFrame with a 'Close' column.
+        period: Moving-average period.
+        num_std: Number of standard deviations for the bands.
+
+    Returns:
+        DataFrame with 'bb_upper', 'bb_lower', 'bb_mid', 'bb_width' columns.
+        bb_width = (upper - lower) / mid — a normalized squeeze measure.
+    """
+    mid = df["Close"].rolling(window=period).mean()
+    std = df["Close"].rolling(window=period).std()
+    upper = mid + num_std * std
+    lower = mid - num_std * std
+    width = (upper - lower) / mid
+
+    return pd.DataFrame({
+        "bb_upper": upper,
+        "bb_lower": lower,
+        "bb_mid": mid,
+        "bb_width": width,
+    }, index=df.index)
+
+
+def calculate_adx(df: pd.DataFrame, period: int = 14) -> pd.Series:
+    """Average Directional Index (trend strength) using Wilder's smoothing.
+
+    Args:
+        df: DataFrame with 'High', 'Low', 'Close' columns.
+        period: ADX/DI lookback period.
+
+    Returns:
+        Series with ADX values (0-100; >25 typically indicates a strong trend).
+    """
+    high = df["High"]
+    low = df["Low"]
+    close = df["Close"]
+
+    up_move = high.diff()
+    down_move = -low.diff()
+
+    plus_dm = ((up_move > down_move) & (up_move > 0)) * up_move
+    minus_dm = ((down_move > up_move) & (down_move > 0)) * down_move
+
+    prev_close = close.shift(1)
+    tr = pd.concat([
+        high - low,
+        (high - prev_close).abs(),
+        (low - prev_close).abs(),
+    ], axis=1).max(axis=1)
+
+    alpha = 1 / period
+    atr = tr.ewm(alpha=alpha, min_periods=period, adjust=False).mean()
+    plus_di = 100 * plus_dm.ewm(alpha=alpha, min_periods=period, adjust=False).mean() / atr
+    minus_di = 100 * minus_dm.ewm(alpha=alpha, min_periods=period, adjust=False).mean() / atr
+
+    dx = 100 * (plus_di - minus_di).abs() / (plus_di + minus_di)
+    adx = dx.ewm(alpha=alpha, min_periods=period, adjust=False).mean()
+    adx.name = "adx"
+    return adx
+
+
+def _golden_cross_signal(short_sma: pd.Series, long_sma: pd.Series) -> int:
+    """Return 1 on a golden cross, -1 on a death cross, else 0 (latest bar)."""
+    if len(short_sma) < 2:
+        return 0
+    curr = short_sma.iloc[-1] - long_sma.iloc[-1]
+    prev = short_sma.iloc[-2] - long_sma.iloc[-2]
+    if pd.isna(curr) or pd.isna(prev):
+        return 0
+    if prev <= 0 and curr > 0:
+        return 1
+    if prev >= 0 and curr < 0:
+        return -1
+    return 0
+
+
 def calculate_all_indicators(df: pd.DataFrame, config: ScreenerConfig) -> dict[str, float] | None:
     """Calculate all indicators and return the latest bar's values as a flat dict.
 
@@ -128,6 +266,14 @@ def calculate_all_indicators(df: pd.DataFrame, config: ScreenerConfig) -> dict[s
         macd = calculate_macd(df, config.macd_fast, config.macd_slow, config.macd_signal)
         sma = calculate_sma(df, config.sma_period)
 
+        # Volume / momentum / breakout indicators
+        sma_short = calculate_sma(df, config.sma_short_period)
+        rvol = calculate_rvol(df, config.rvol_period)
+        atr = calculate_atr(df, config.atr_period)
+        roc = calculate_roc(df, config.roc_period)
+        bollinger = calculate_bollinger(df, config.bb_period, config.bb_std)
+        adx = calculate_adx(df, config.adx_period)
+
         latest_close = df["Close"].iloc[-1]
         latest_sma = sma.iloc[-1]
         prev_close = df["Close"].iloc[-2] if len(df) > 1 else latest_close
@@ -138,6 +284,12 @@ def calculate_all_indicators(df: pd.DataFrame, config: ScreenerConfig) -> dict[s
             price_vs_sma = None
         else:
             price_vs_sma = float(latest_close / latest_sma)
+
+        # 52-week (rolling) high/low distance as a percentage from the latest close
+        hh = df["High"].rolling(window=config.high_low_period).max().iloc[-1]
+        ll = df["Low"].rolling(window=config.high_low_period).min().iloc[-1]
+        dist_52w_high = float((latest_close - hh) / hh * 100) if not pd.isna(hh) and hh != 0 else None
+        dist_52w_low = float((latest_close - ll) / ll * 100) if not pd.isna(ll) and ll != 0 else None
 
         result = {
             "stochastic_k": _safe_float(stochastic["stochastic_k"].iloc[-1]),
@@ -154,6 +306,18 @@ def calculate_all_indicators(df: pd.DataFrame, config: ScreenerConfig) -> dict[s
             "close": float(latest_close),
             "change_pct": round(change_pct, 2),
             "history_close_30d": [round(float(x), 2) for x in df["Close"].tail(30).tolist()],
+            # Volume / momentum / breakout
+            "sma50": _safe_float(sma_short.iloc[-1]),
+            "rvol": _safe_float(rvol.iloc[-1]),
+            "atr": _safe_float(atr.iloc[-1]),
+            "roc": _safe_float(roc.iloc[-1]),
+            "bb_upper": _safe_float(bollinger["bb_upper"].iloc[-1]),
+            "bb_lower": _safe_float(bollinger["bb_lower"].iloc[-1]),
+            "bb_width": _safe_float(bollinger["bb_width"].iloc[-1]),
+            "adx": _safe_float(adx.iloc[-1]),
+            "dist_52w_high": _safe_float(dist_52w_high),
+            "dist_52w_low": _safe_float(dist_52w_low),
+            "golden_cross": _golden_cross_signal(sma_short, sma),
         }
 
         # Return None if any critical indicator is NaN
