@@ -1,6 +1,6 @@
 import logging
 import urllib.parse
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 
 from screener.strategies import ScreenerResult
 
@@ -64,39 +64,69 @@ def _format_ticker_row(result: ScreenerResult, strategy_name: str) -> list[dict]
     if vals.get("macd_crossover") is not None and vals["macd_crossover"] != 0:
         indicator_parts.append("MACD: ✅" if vals["macd_crossover"] == 1 else "MACD: ❌")
 
+    # Compact volume / momentum line (only fields that are present)
+    momentum_parts = []
+    if vals.get("rvol") is not None:
+        momentum_parts.append(f"RVOL {vals['rvol']:.1f}×")
+    if vals.get("adx") is not None:
+        momentum_parts.append(f"ADX {vals['adx']:.0f}")
+    if vals.get("roc") is not None:
+        momentum_parts.append(f"ROC {vals['roc']:+.1f}%")
+    if vals.get("atr") is not None:
+        momentum_parts.append(f"ATR {vals['atr']:.2f}")
+    if momentum_parts:
+        indicator_parts.append(" · ".join(momentum_parts))
+
     indicators_text = "\n".join(indicator_parts) if indicator_parts else "—"
 
     change_pct = vals.get("change_pct", 0.0)
     change_color = "#27AE60" if change_pct >= 0 else "#E74C3C"
     change_text = f"{change_pct:+.2f}%"
 
+    left_contents: list[dict] = [
+        {
+            "type": "box",
+            "layout": "horizontal",
+            "contents": [
+                {"type": "text", "text": result.ticker, "weight": "bold", "size": "sm", "flex": 1},
+                {"type": "text", "text": f"${result.close_price:.2f}", "size": "sm", "align": "start", "flex": 1},
+                {"type": "text", "text": change_text, "size": "sm", "align": "end", "color": change_color, "flex": 1},
+            ],
+        },
+        {
+            "type": "text",
+            "text": indicators_text,
+            "size": "xs",
+            "color": "#8C8C8C",
+            "margin": "sm",
+            "wrap": True,
+        },
+    ]
+
+    # News headlines (best-effort; only rendered when present)
+    for item in result.headlines:
+        title = item.get("title", "")
+        if not title:
+            continue
+        if len(title) > 45:
+            title = title[:44] + "…"
+        left_contents.append({
+            "type": "text",
+            "text": f"📰 {title}",
+            "size": "xxs",
+            "color": "#A0A0A0",
+            "wrap": True,
+        })
+
     left_col = {
         "type": "box",
         "layout": "vertical",
         "flex": 2,
-        "contents": [
-            {
-                "type": "box",
-                "layout": "horizontal",
-                "contents": [
-                    {"type": "text", "text": result.ticker, "weight": "bold", "size": "sm", "flex": 1},
-                    {"type": "text", "text": f"${result.close_price:.2f}", "size": "sm", "align": "start", "flex": 1},
-                    {"type": "text", "text": change_text, "size": "sm", "align": "end", "color": change_color, "flex": 1},
-                ],
-            },
-            {
-                "type": "text",
-                "text": indicators_text,
-                "size": "xs",
-                "color": "#8C8C8C",
-                "margin": "sm",
-                "wrap": True,
-            },
-        ],
+        "contents": left_contents,
     }
 
     contents = [left_col]
-    
+
     if vals.get("history_close_30d"):
         chart_url = _build_quickchart_url(vals["history_close_30d"])
         if chart_url:
@@ -194,24 +224,33 @@ def format_summary_bubble(
     total_tickers: int,
     strategy_results: dict[str, list[ScreenerResult]],
     etf_list: list[str],
+    market_label: str = "",
+    tz_offset: int = 7,
 ) -> dict:
     """Build a summary bubble showing screening overview."""
-    now = datetime.now(ICT)
+    now = datetime.now(timezone(timedelta(hours=tz_offset)))
     total_signals = sum(len(results) for results in strategy_results.values())
+    title = f"📊 {market_label} Summary" if market_label else "📊 Daily Screener Summary"
 
     strategy_lines: list[dict] = []
     for name, results in strategy_results.items():
-        stocks = [r for r in results if r.ticker not in etf_list]
-        etfs = [r for r in results if r.ticker in etf_list]
+        # Only split into Stocks/ETFs when an ETF list is provided (US market).
+        if etf_list:
+            stocks = [r for r in results if r.ticker not in etf_list]
+            etfs = [r for r in results if r.ticker in etf_list]
+        else:
+            stocks = list(results)
+            etfs = []
         emoji = _get_signal_emoji(name)
-        
+
+        stocks_label = f"{emoji} {name} - Stocks" if etf_list else f"{emoji} {name}"
         if stocks or etfs:
             if stocks:
                 strategy_lines.append({
                     "type": "box",
                     "layout": "horizontal",
                     "contents": [
-                        {"type": "text", "text": f"{emoji} {name} - Stocks", "size": "xs", "flex": 4, "wrap": True},
+                        {"type": "text", "text": stocks_label, "size": "xs", "flex": 4, "wrap": True},
                         {"type": "text", "text": str(len(stocks)), "size": "xs", "align": "end", "flex": 1, "weight": "bold"},
                     ],
                 })
@@ -243,7 +282,7 @@ def format_summary_bubble(
             "contents": [
                 {
                     "type": "text",
-                    "text": "📊 Daily Screener Summary",
+                    "text": title,
                     "color": "#FFFFFF",
                     "weight": "bold",
                     "size": "md",
@@ -302,6 +341,8 @@ def build_flex_messages(
     strategy_results: dict[str, list[ScreenerResult]],
     total_tickers: int,
     etf_list: list[str],
+    market_label: str = "",
+    tz_offset: int = 7,
 ) -> list[dict]:
     """Build complete Flex Message payloads for LINE.
 
@@ -311,39 +352,49 @@ def build_flex_messages(
     Args:
         strategy_results: Dict of strategy name -> matched tickers.
         total_tickers: Total number of tickers screened.
-        etf_list: List of ETF tickers to distinguish stocks vs ETFs.
+        etf_list: List of ETF tickers to distinguish stocks vs ETFs. When empty,
+            no stocks/ETFs split is applied (used for non-US markets).
+        market_label: Optional market name shown in headers (e.g. "🇺🇸 US Stocks").
+        tz_offset: Hours from UTC for the summary timestamp.
 
     Returns:
         List of Flex Message dicts ready to send via LINE API.
     """
+    prefix = f"{market_label} · " if market_label else ""
     bubbles: list[dict] = []
 
     # Summary bubble first
-    bubbles.append(format_summary_bubble(total_tickers, strategy_results, etf_list))
+    bubbles.append(format_summary_bubble(total_tickers, strategy_results, etf_list, market_label, tz_offset))
 
-    # Strategy bubbles (split into Stocks and ETFs, up to 2 bubbles each)
+    # Strategy bubbles (split into Stocks and ETFs only when an ETF list exists)
     for name, results in strategy_results.items():
         if not results:
             continue
 
-        stocks = [r for r in results if r.ticker not in etf_list]
-        etfs = [r for r in results if r.ticker in etf_list]
+        if etf_list:
+            asset_groups = [
+                ("Stocks", [r for r in results if r.ticker not in etf_list]),
+                ("ETFs", [r for r in results if r.ticker in etf_list]),
+            ]
+        else:
+            asset_groups = [("", list(results))]
 
-        for asset_type, asset_results in [("Stocks", stocks), ("ETFs", etfs)]:
+        for asset_type, asset_results in asset_groups:
             if not asset_results:
                 continue
 
+            suffix = f" - {asset_type}" if asset_type else ""
             total_count = len(asset_results)
             if total_count <= 10:
-                display_name = f"{name} - {asset_type}"
+                display_name = f"{prefix}{name}{suffix}"
                 bubbles.append(format_strategy_bubble(display_name, asset_results, total_count))
             else:
                 # Bubble 1 (1/2): first 10
-                display_name_1 = f"{name} - {asset_type} (1/2)"
+                display_name_1 = f"{prefix}{name}{suffix} (1/2)"
                 bubbles.append(format_strategy_bubble(display_name_1, asset_results[:10], total_count))
-                
+
                 # Bubble 2 (2/2): next 10, plus show_more_count if total_count > 20
-                display_name_2 = f"{name} - {asset_type} (2/2)"
+                display_name_2 = f"{prefix}{name}{suffix} (2/2)"
                 show_more_count = max(0, total_count - 20)
                 bubbles.append(format_strategy_bubble(display_name_2, asset_results[10:20], total_count, show_more_count))
 
