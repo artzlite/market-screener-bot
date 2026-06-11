@@ -3,11 +3,22 @@ import logging
 import urllib.parse
 from datetime import datetime, timedelta, timezone
 
+from screener.market_summary import ThemeSummary
 from screener.strategies import ScreenerResult
 
 logger = logging.getLogger(__name__)
 
 ICT = timezone(timedelta(hours=7))
+
+_POSITIVE_COLOR = "#27AE60"
+_NEGATIVE_COLOR = "#E74C3C"
+_MUTED_COLOR = "#8C8C8C"
+
+# Thai labels for the common look-back windows; falls back to "{n} วัน".
+_LOOKBACK_LABELS_TH = {1: "1 วัน", 5: "1 สัปดาห์", 20: "1 เดือน", 60: "3 เดือน"}
+
+# How many themes to pack into a single overview bubble before splitting.
+THEMES_PER_BUBBLE = 4
 
 
 def _get_strategy_color(strategy_name: str) -> str:
@@ -401,6 +412,143 @@ def build_flex_messages(
 
     alt_text = f"📊 {market_label} Screener Results" if market_label else "📊 Daily Stock Screener Results"
     return _bubbles_to_messages(bubbles, alt_text)
+
+
+# ---------------------------------------------------------------------------
+# Market-overview (sector/theme rotation) — Thai-language bubble
+# ---------------------------------------------------------------------------
+
+
+def _lookback_label(lookback: int) -> str:
+    """Thai column header for a look-back window."""
+    return _LOOKBACK_LABELS_TH.get(lookback, f"{lookback} วัน")
+
+
+def _display_symbol(symbol: str) -> str:
+    """Trim exchange/quote suffixes for a compact label (BTCUSDT → BTC)."""
+    for suffix in ("USDT", ".BK", "=X", "=F"):
+        if symbol.endswith(suffix):
+            return symbol[: -len(suffix)] or symbol
+    return symbol
+
+
+def _change_cell(value: float | None, *, weight: str | None = None) -> dict:
+    """A right-aligned percentage cell, green for gains and red for losses."""
+    if value is None:
+        text, color = "–", _MUTED_COLOR
+    else:
+        text = f"{value:+.1f}%"
+        color = _POSITIVE_COLOR if value >= 0 else _NEGATIVE_COLOR
+    cell = {"type": "text", "text": text, "size": "xs", "align": "end", "flex": 2, "color": color}
+    if weight:
+        cell["weight"] = weight
+    return cell
+
+
+def _overview_row(label: str, changes: dict[int, float | None], lookbacks: list[int], *, header: bool) -> dict:
+    """One row: a label on the left and a change cell per look-back on the right."""
+    name_cell = {"type": "text", "text": label, "size": "xs", "flex": 5, "wrap": True}
+    if header:
+        name_cell["weight"] = "bold"
+    contents = [name_cell]
+    for lb in lookbacks:
+        contents.append(_change_cell(changes.get(lb), weight="bold" if header else None))
+    return {
+        "type": "box",
+        "layout": "horizontal",
+        "contents": contents,
+        "margin": "md" if header else "sm",
+    }
+
+
+def _theme_block(summary: ThemeSummary, lookbacks: list[int]) -> list[dict]:
+    """Theme header row (aggregate) followed by indented member rows."""
+    primary = summary.changes.get(lookbacks[-1])
+    arrow = "🔻" if (primary is not None and primary < 0) else "🔺"
+    block: list[dict] = [_overview_row(f"{arrow} {summary.label}", summary.changes, lookbacks, header=True)]
+    for member in summary.members:
+        block.append(_overview_row(f"   {_display_symbol(member.symbol)}", member.changes, lookbacks, header=False))
+    return block
+
+
+def format_market_overview_bubble(
+    market_label: str,
+    summaries: list[ThemeSummary],
+    lookbacks: list[int],
+    tz_offset: int = 7,
+    part: tuple[int, int] | None = None,
+) -> dict:
+    """Build one Thai market-overview bubble for a slice of themes."""
+    now = datetime.now(timezone(timedelta(hours=tz_offset)))
+    title = f"📊 ภาพรวมตลาด {market_label}".strip()
+    if part:
+        title += f" ({part[0]}/{part[1]})"
+
+    # Column-header row labelling each look-back window.
+    column_header = _overview_row("กลุ่ม / เธีม", dict.fromkeys(lookbacks), lookbacks, header=True)
+    column_header["contents"][0]["color"] = _MUTED_COLOR
+    for i, lb in enumerate(lookbacks, start=1):
+        column_header["contents"][i] = {
+            "type": "text", "text": _lookback_label(lb), "size": "xxs",
+            "align": "end", "flex": 2, "color": _MUTED_COLOR, "weight": "bold",
+        }
+
+    body_contents: list[dict] = [
+        {"type": "text", "text": now.strftime("%A, %B %d, %Y"), "size": "xs", "color": _MUTED_COLOR},
+        column_header,
+        {"type": "separator", "margin": "sm"},
+    ]
+    for i, summary in enumerate(summaries):
+        if i > 0:
+            body_contents.append({"type": "separator", "margin": "sm"})
+        body_contents.extend(_theme_block(summary, lookbacks))
+
+    return {
+        "type": "bubble",
+        "size": "kilo",
+        "header": {
+            "type": "box",
+            "layout": "vertical",
+            "contents": [{"type": "text", "text": title, "color": "#FFFFFF", "weight": "bold", "size": "md", "wrap": True}],
+            "backgroundColor": "#34495E",
+            "paddingAll": "15px",
+        },
+        "body": {
+            "type": "box",
+            "layout": "vertical",
+            "contents": body_contents,
+            "paddingAll": "15px",
+            "spacing": "sm",
+        },
+    }
+
+
+def build_market_overview_messages(
+    market_label: str,
+    summaries: list[ThemeSummary],
+    lookbacks: list[int],
+    tz_offset: int = 7,
+) -> list[dict]:
+    """Build LINE flex message(s) for a market's sector/theme overview.
+
+    Themes are chunked into bubbles (``THEMES_PER_BUBBLE`` each) and packed into
+    carousels honoring LINE's bubble-count and 50 KB limits.
+
+    Returns an empty list when there are no summaries.
+    """
+    if not summaries or not lookbacks:
+        return []
+
+    chunks = [summaries[i : i + THEMES_PER_BUBBLE] for i in range(0, len(summaries), THEMES_PER_BUBBLE)]
+    total = len(chunks)
+    bubbles = [
+        format_market_overview_bubble(
+            market_label, chunk, lookbacks, tz_offset,
+            part=(idx, total) if total > 1 else None,
+        )
+        for idx, chunk in enumerate(chunks, start=1)
+    ]
+    return _bubbles_to_messages(bubbles, f"📊 ภาพรวมตลาด {market_label}".strip())
 
 
 # LINE limits: a carousel may hold at most 12 bubbles, and the JSON that defines

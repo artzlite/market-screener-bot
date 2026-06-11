@@ -123,6 +123,36 @@
       ]
     }
   ],
+  "themes": [
+    {"id": "us_tech", "market": "us_stocks", "label": "เทคโนโลยี/เซมิคอนดักเตอร์ (Tech & Semis)", "symbols": ["XLK", "SOXX", "SMH", "QQQ", "ARKK"]},
+    {"id": "us_financials", "market": "us_stocks", "label": "การเงิน/ธนาคาร (Financials)", "symbols": ["XLF", "KRE"]},
+    {"id": "us_healthcare", "market": "us_stocks", "label": "สุขภาพ/ไบโอเทค (Healthcare)", "symbols": ["XLV", "IBB", "XBI"]},
+    {"id": "us_energy", "market": "us_stocks", "label": "พลังงาน (Energy)", "symbols": ["XLE"]},
+    {"id": "us_metals", "market": "us_stocks", "label": "โลหะมีค่า (Precious Metals)", "symbols": ["GLD", "SLV"]},
+    {"id": "us_bonds", "market": "us_stocks", "label": "ตราสารหนี้ (Bonds)", "symbols": ["TLT", "HYG"]},
+    {"id": "us_emerging", "market": "us_stocks", "label": "ตลาดเกิดใหม่ (Emerging Markets)", "symbols": ["EEM", "EFA", "KWEB"]},
+    {"id": "us_broad", "market": "us_stocks", "label": "ดัชนีหลัก (Broad Market)", "symbols": ["SPY", "DIA", "IWM", "VTI"]},
+    {"id": "us_realestate", "market": "us_stocks", "label": "อสังหา/สาธารณูปโภค (REIT & Utilities)", "symbols": ["XLRE", "VNQ", "XLU"]},
+    {"id": "us_sectors_other", "market": "us_stocks", "label": "กลุ่มอื่นๆ (Other Sectors)", "symbols": ["XLI", "XLP", "XLB", "XLC", "XLY"]},
+
+    {"id": "crypto_major_l1", "market": "crypto", "label": "Layer 1 หลัก (Major L1)", "symbols": ["BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT"]},
+    {"id": "crypto_payments", "market": "crypto", "label": "เพย์เมนต์ (Payments)", "symbols": ["XRPUSDT", "LTCUSDT", "TRXUSDT"]},
+    {"id": "crypto_alt_l1", "market": "crypto", "label": "Smart Contract / Alt L1", "symbols": ["ADAUSDT", "AVAXUSDT", "DOTUSDT"]},
+    {"id": "crypto_meme_oracle", "market": "crypto", "label": "มีม & ออราเคิล (Meme & Oracle)", "symbols": ["DOGEUSDT", "LINKUSDT"]},
+
+    {"id": "thai_banks", "market": "thai", "label": "ธนาคาร (Banks)", "symbols": ["KBANK.BK", "SCB.BK", "BBL.BK", "KTB.BK"]},
+    {"id": "thai_energy", "market": "thai", "label": "พลังงาน (Energy)", "symbols": ["PTT.BK", "PTTEP.BK", "GULF.BK", "GPSC.BK", "EA.BK", "BANPU.BK", "TOP.BK"]},
+    {"id": "thai_retail", "market": "thai", "label": "ค้าปลีก (Retail)", "symbols": ["CPALL.BK", "CPN.BK", "CRC.BK", "HMPRO.BK"]},
+    {"id": "thai_healthcare", "market": "thai", "label": "โรงพยาบาล (Healthcare)", "symbols": ["BDMS.BK", "BH.BK"]},
+    {"id": "thai_electronics", "market": "thai", "label": "อิเล็กทรอนิกส์ (Electronics)", "symbols": ["DELTA.BK", "KCE.BK"]},
+    {"id": "thai_telecom", "market": "thai", "label": "สื่อสาร (Telecom)", "symbols": ["ADVANC.BK", "TRUE.BK"]},
+    {"id": "thai_other", "market": "thai", "label": "อื่นๆ (Others)", "symbols": ["AOT.BK", "SCC.BK", "MINT.BK"]},
+
+    {"id": "cmdty_precious", "market": "commodities", "label": "โลหะมีค่า (Precious Metals)", "symbols": ["GC=F", "SI=F"]},
+    {"id": "cmdty_energy", "market": "commodities", "label": "พลังงาน (Energy)", "symbols": ["CL=F", "NG=F"]},
+    {"id": "cmdty_industrial", "market": "commodities", "label": "โลหะอุตสาหกรรม (Industrial Metals)", "symbols": ["HG=F"]},
+    {"id": "cmdty_fx", "market": "commodities", "label": "ค่าเงิน (FX)", "symbols": ["EURUSD=X", "GBPUSD=X", "USDJPY=X", "USDTHB=X"]}
+  ],
   "etf_list": [
     "SPY", "QQQ", "IWM", "DIA", "XLF", "XLE", "XLK", "XLV", "XLI", "XLP",
     "XLU", "XLB", "XLRE", "XLC", "XLY", "GLD", "SLV", "TLT", "HYG", "VNQ",
@@ -146,6 +176,8 @@
   "high_low_period": 252,
   "news_enabled": true,
   "news_count": 2,
+  "summary_enabled": true,
+  "summary_lookbacks": [5, 20],
   "binance_base_url": "https://data-api.binance.vision",
   "binance_market": "spot"
 }

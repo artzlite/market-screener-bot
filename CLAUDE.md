@@ -56,9 +56,11 @@ reuses one shared indicator/strategy engine, aggregating results grouped by mark
 
 6. **`news.py`** — Best-effort `fetch_headlines(symbol, count)` via yfinance's built-in news; returns `[]` on any failure. Crypto symbols map `BTCUSDT → BTC-USD`. Called only on matched results to bound API calls.
 
-7. **`formatter.py`** — Builds LINE Flex Message JSON, accepting a `market_label` (header prefix) and `tz_offset`. Stocks/ETFs split applies only when an `etf_list` is passed (US market). Renders a compact volume/momentum line and news headlines per row.
+7. **`market_summary.py`** — `build_theme_summaries(daily_data, themes, lookbacks)` turns the fetched daily data into sector/theme rotation. Each `Theme` (from `config.json`'s `themes`, grouping already-tracked symbols per market via a `market` id) gets every member's % change over each look-back window (`summary_lookbacks`, default `[5, 20]` = 1W/1M) plus the theme average. No extra data is fetched; themes/members are sorted strongest-first by the longest window. Gated by `summary_enabled`.
 
-8. **`notifier.py`** — `LineNotifier` dispatches to Broadcast or Push API, with up to 2 retries. Error alerts always use Push API (sent only to `LINE_USER_ID`, never broadcast).
+8. **`formatter.py`** — Builds LINE Flex Message JSON, accepting a `market_label` (header prefix) and `tz_offset`. Stocks/ETFs split applies only when an `etf_list` is passed (US market). Renders a compact volume/momentum line and news headlines per row. `build_market_overview_messages(...)` renders the Thai "📊 ภาพรวมตลาด" overview bubble(s) from `ThemeSummary` objects (chunked `THEMES_PER_BUBBLE`, packed under the same 12-bubble / 50 KB limits); `main.py` prepends these ahead of each market's strategy bubbles.
+
+9. **`notifier.py`** — `LineNotifier` dispatches to Broadcast or Push API, with up to 2 retries. Error alerts always use Push API (sent only to `LINE_USER_ID`, never broadcast).
 
 ## Key Design Points
 

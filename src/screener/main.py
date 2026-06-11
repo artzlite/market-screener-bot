@@ -8,8 +8,9 @@ import pandas as pd
 
 from screener.config import Market, ScreenerConfig, load_config
 from screener.data_fetcher import fetch_market_data, resample_to_weekly
-from screener.formatter import build_flex_messages
+from screener.formatter import build_flex_messages, build_market_overview_messages
 from screener.indicators import calculate_all_indicators
+from screener.market_summary import build_theme_summaries
 from screener.news import fetch_headlines
 from screener.notifier import LineNotifier
 from screener.strategies import ScreenerResult, run_screener
@@ -84,6 +85,30 @@ def _enrich_with_news(
             result.headlines = cache[result.ticker]
 
 
+def _build_overview(
+    market: Market, daily_data: dict, config: ScreenerConfig, label: str
+) -> list[dict]:
+    """Build the Thai sector/theme overview message(s) for a market.
+
+    Returns an empty list when summaries are disabled or no theme has data.
+    """
+    if not config.summary_enabled:
+        return []
+
+    market_themes = [t for t in config.themes if t.market == market.id]
+    if not market_themes:
+        return []
+
+    summaries = build_theme_summaries(daily_data, market_themes, config.summary_lookbacks)
+    if not summaries:
+        return []
+
+    logger.info("%s: market overview with %d theme(s)", label, len(summaries))
+    return build_market_overview_messages(
+        label, summaries, config.summary_lookbacks, market.timezone_offset
+    )
+
+
 def screen_market(market: Market, config: ScreenerConfig) -> tuple[list[dict], int]:
     """Screen a single market and return (flex_messages, tickers_screened).
 
@@ -109,6 +134,10 @@ def screen_market(market: Market, config: ScreenerConfig) -> tuple[list[dict], i
         binance_market=config.binance_market,
     )
     weekly_data = resample_to_weekly(daily_data)
+
+    # High-level sector/theme overview (Thai) — best-effort, built from the same
+    # daily data. Prepended ahead of the per-strategy result bubbles.
+    overview_messages = _build_overview(market, daily_data, config, label)
 
     daily_indicators: dict[str, dict[str, float | None]] = {}
     weekly_indicators: dict[str, dict[str, float | None]] = {}
@@ -146,7 +175,7 @@ def screen_market(market: Market, config: ScreenerConfig) -> tuple[list[dict], i
         market_label=label,
         tz_offset=market.timezone_offset,
     )
-    return flex_messages, len(daily_indicators)
+    return overview_messages + flex_messages, len(daily_indicators)
 
 
 def main() -> None:

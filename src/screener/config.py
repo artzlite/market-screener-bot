@@ -2,6 +2,8 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
+DEFAULT_SUMMARY_LOOKBACKS = [5, 20]
+
 
 @dataclass
 class Rule:
@@ -23,6 +25,26 @@ class Strategy:
     timeframe: str  # "daily" or "weekly"
     rules: list[Rule]
     markets: list[str] = field(default_factory=list)
+
+
+@dataclass
+class Theme:
+    """A named basket of symbols used for the market-overview summary.
+
+    Themes group already-tracked symbols (no extra data is fetched) so the bot
+    can report sector/theme rotation, e.g. "พลังงาน (Energy) -10%".
+
+    Attributes:
+        id: Stable identifier.
+        market: Market id this theme belongs to (matches ``Market.id``).
+        label: Human-readable (Thai) label shown in the overview bubble.
+        symbols: Symbols that make up the theme; must be a subset of the
+            market's tracked symbols.
+    """
+    id: str
+    market: str
+    label: str
+    symbols: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -57,6 +79,7 @@ class ScreenerConfig:
     strategies: list[Strategy]
     etf_list: list[str]
     markets: list[Market] = field(default_factory=list)
+    themes: list[Theme] = field(default_factory=list)
     data_period: str = "1y"
     stochastic_k_period: int = 14
     stochastic_d_period: int = 3
@@ -77,6 +100,9 @@ class ScreenerConfig:
     # News
     news_enabled: bool = True
     news_count: int = 3
+    # Market-overview summary (sector/theme rotation bubble)
+    summary_enabled: bool = True
+    summary_lookbacks: list[int] = field(default_factory=lambda: [5, 20])
     # Binance source (public market data — no API key needed).
     # data-api.binance.vision is geo-robust (works on US GitHub Actions runners).
     binance_base_url: str = "https://data-api.binance.vision"
@@ -135,6 +161,16 @@ def load_config(config_path: str | Path | None = None) -> ScreenerConfig:
 
     etf_list = raw.get("etf_list", [])
 
+    themes = [
+        Theme(
+            id=t["id"],
+            market=t["market"],
+            label=t.get("label", t["id"]),
+            symbols=list(t.get("symbols", [])),
+        )
+        for t in raw.get("themes", [])
+    ]
+
     markets = [_parse_market(m) for m in raw.get("markets", [])]
     if not markets:
         # Backward compatibility: synthesize a single US market from the legacy
@@ -153,6 +189,7 @@ def load_config(config_path: str | Path | None = None) -> ScreenerConfig:
         strategies=strategies,
         etf_list=etf_list,
         markets=markets,
+        themes=themes,
         data_period=raw.get("data_period", "1y"),
         stochastic_k_period=raw.get("stochastic_k_period", 14),
         stochastic_d_period=raw.get("stochastic_d_period", 3),
@@ -171,6 +208,8 @@ def load_config(config_path: str | Path | None = None) -> ScreenerConfig:
         high_low_period=raw.get("high_low_period", 252),
         news_enabled=raw.get("news_enabled", True),
         news_count=raw.get("news_count", 3),
+        summary_enabled=raw.get("summary_enabled", True),
+        summary_lookbacks=list(raw.get("summary_lookbacks", DEFAULT_SUMMARY_LOOKBACKS)),
         binance_base_url=raw.get("binance_base_url", "https://data-api.binance.vision"),
         binance_market=raw.get("binance_market", "spot"),
     )
