@@ -1,4 +1,5 @@
 import logging
+import os
 import sys
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
@@ -8,8 +9,9 @@ import pandas as pd
 
 from screener.config import Market, ScreenerConfig, load_config
 from screener.data_fetcher import fetch_market_data, resample_to_weekly
-from screener.formatter import build_flex_messages
+from screener.formatter import build_flex_messages, build_market_overview_messages
 from screener.indicators import calculate_all_indicators
+from screener.market_summary import build_theme_summaries
 from screener.news import fetch_headlines
 from screener.notifier import LineNotifier
 from screener.strategies import ScreenerResult, run_screener
@@ -32,6 +34,15 @@ _MARKET_EMOJI = {
     "crypto": "₿",
     "commodities": "🛢️",
 }
+
+
+def _strategies_enabled() -> bool:
+    """Return True unless STRATEGIES_ENABLED is explicitly set to 'false'.
+
+    When disabled, strategies remain in config.json but are not run — each
+    market ships only its sector/theme overview bubble.
+    """
+    return os.environ.get("STRATEGIES_ENABLED", "true").strip().lower() != "false"
 
 
 def is_previous_trading_day(calendar_code: str, tz_offset: int = 7) -> bool:
@@ -84,6 +95,30 @@ def _enrich_with_news(
             result.headlines = cache[result.ticker]
 
 
+def _build_overview(
+    market: Market, daily_data: dict, config: ScreenerConfig, label: str
+) -> list[dict]:
+    """Build the Thai sector/theme overview message(s) for a market.
+
+    Returns an empty list when summaries are disabled or no theme has data.
+    """
+    if not config.summary_enabled:
+        return []
+
+    market_themes = [t for t in config.themes if t.market == market.id]
+    if not market_themes:
+        return []
+
+    summaries = build_theme_summaries(daily_data, market_themes, config.summary_lookbacks)
+    if not summaries:
+        return []
+
+    logger.info("%s: market overview with %d theme(s)", label, len(summaries))
+    return build_market_overview_messages(
+        label, summaries, config.summary_lookbacks, market.timezone_offset
+    )
+
+
 def screen_market(market: Market, config: ScreenerConfig) -> tuple[list[dict], int]:
     """Screen a single market and return (flex_messages, tickers_screened).
 
@@ -110,6 +145,10 @@ def screen_market(market: Market, config: ScreenerConfig) -> tuple[list[dict], i
     )
     weekly_data = resample_to_weekly(daily_data)
 
+    # High-level sector/theme overview (Thai) — best-effort, built from the same
+    # daily data. Prepended ahead of the per-strategy result bubbles.
+    overview_messages = _build_overview(market, daily_data, config, label)
+
     daily_indicators: dict[str, dict[str, float | None]] = {}
     weekly_indicators: dict[str, dict[str, float | None]] = {}
     for ticker, df in daily_data.items():
@@ -126,8 +165,9 @@ def screen_market(market: Market, config: ScreenerConfig) -> tuple[list[dict], i
     # Scope strategies to this market (empty markets list = all markets).
     market_strategies = [s for s in config.strategies if not s.markets or market.id in s.markets]
     if not market_strategies:
-        logger.info("%s: no strategies scoped to this market. Skipping.", label)
-        return [], len(daily_indicators)
+        # No strategies for this market, but the overview (if any) still ships.
+        logger.info("%s: no strategies scoped to this market — sending overview only.", label)
+        return overview_messages, len(daily_indicators)
 
     scoped_config = replace(config, strategies=market_strategies)
     strategy_results = run_screener(daily_indicators, weekly_indicators, scoped_config)
@@ -146,7 +186,7 @@ def screen_market(market: Market, config: ScreenerConfig) -> tuple[list[dict], i
         market_label=label,
         tz_offset=market.timezone_offset,
     )
-    return flex_messages, len(daily_indicators)
+    return overview_messages + flex_messages, len(daily_indicators)
 
 
 def main() -> None:
@@ -160,6 +200,11 @@ def main() -> None:
     try:
         notifier = LineNotifier()
         config = load_config()
+
+        if not _strategies_enabled():
+            logger.info("STRATEGIES_ENABLED=false — running market overview only (strategies kept in config).")
+            config = replace(config, strategies=[])
+
         enabled_markets = [m for m in config.markets if m.enabled]
         logger.info("Loaded %d strategies across %d enabled market(s)", len(config.strategies), len(enabled_markets))
 
