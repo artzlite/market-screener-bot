@@ -15,7 +15,7 @@ _NEGATIVE_COLOR = "#E74C3C"
 _MUTED_COLOR = "#8C8C8C"
 
 # Thai labels for the common look-back windows; falls back to "{n} วัน".
-_LOOKBACK_LABELS_TH = {1: "1 วัน", 5: "1 สัปดาห์", 20: "1 เดือน", 60: "3 เดือน"}
+_LOOKBACK_LABELS_TH = {1: "1 วัน", 7: "1 สัปดาห์", 30: "1 เดือน", 90: "3 เดือน", 180: "6 เดือน", 365: "1 ปี"}
 
 # How many themes to pack into a single overview bubble before splitting.
 THEMES_PER_BUBBLE = 4

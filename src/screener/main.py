@@ -1,4 +1,5 @@
 import logging
+import os
 import sys
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
@@ -33,6 +34,15 @@ _MARKET_EMOJI = {
     "crypto": "₿",
     "commodities": "🛢️",
 }
+
+
+def _strategies_enabled() -> bool:
+    """Return True unless STRATEGIES_ENABLED is explicitly set to 'false'.
+
+    When disabled, strategies remain in config.json but are not run — each
+    market ships only its sector/theme overview bubble.
+    """
+    return os.environ.get("STRATEGIES_ENABLED", "true").strip().lower() != "false"
 
 
 def is_previous_trading_day(calendar_code: str, tz_offset: int = 7) -> bool:
@@ -155,8 +165,9 @@ def screen_market(market: Market, config: ScreenerConfig) -> tuple[list[dict], i
     # Scope strategies to this market (empty markets list = all markets).
     market_strategies = [s for s in config.strategies if not s.markets or market.id in s.markets]
     if not market_strategies:
-        logger.info("%s: no strategies scoped to this market. Skipping.", label)
-        return [], len(daily_indicators)
+        # No strategies for this market, but the overview (if any) still ships.
+        logger.info("%s: no strategies scoped to this market — sending overview only.", label)
+        return overview_messages, len(daily_indicators)
 
     scoped_config = replace(config, strategies=market_strategies)
     strategy_results = run_screener(daily_indicators, weekly_indicators, scoped_config)
@@ -189,6 +200,11 @@ def main() -> None:
     try:
         notifier = LineNotifier()
         config = load_config()
+
+        if not _strategies_enabled():
+            logger.info("STRATEGIES_ENABLED=false — running market overview only (strategies kept in config).")
+            config = replace(config, strategies=[])
+
         enabled_markets = [m for m in config.markets if m.enabled]
         logger.info("Loaded %d strategies across %d enabled market(s)", len(config.strategies), len(enabled_markets))
 

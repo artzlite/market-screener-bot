@@ -140,12 +140,12 @@
     {"id": "crypto_alt_l1", "market": "crypto", "label": "Smart Contract / Alt L1", "symbols": ["ADAUSDT", "AVAXUSDT", "DOTUSDT"]},
     {"id": "crypto_meme_oracle", "market": "crypto", "label": "มีม & ออราเคิล (Meme & Oracle)", "symbols": ["DOGEUSDT", "LINKUSDT"]},
 
-    {"id": "thai_banks", "market": "thai", "label": "ธนาคาร (Banks)", "symbols": ["KBANK.BK", "SCB.BK", "BBL.BK", "KTB.BK"]},
-    {"id": "thai_energy", "market": "thai", "label": "พลังงาน (Energy)", "symbols": ["PTT.BK", "PTTEP.BK", "GULF.BK", "GPSC.BK", "EA.BK", "BANPU.BK", "TOP.BK"]},
-    {"id": "thai_retail", "market": "thai", "label": "ค้าปลีก (Retail)", "symbols": ["CPALL.BK", "CPN.BK", "CRC.BK", "HMPRO.BK"]},
-    {"id": "thai_healthcare", "market": "thai", "label": "โรงพยาบาล (Healthcare)", "symbols": ["BDMS.BK", "BH.BK"]},
-    {"id": "thai_electronics", "market": "thai", "label": "อิเล็กทรอนิกส์ (Electronics)", "symbols": ["DELTA.BK", "KCE.BK"]},
-    {"id": "thai_telecom", "market": "thai", "label": "สื่อสาร (Telecom)", "symbols": ["ADVANC.BK", "TRUE.BK"]},
+    {"id": "thai_banks", "market": "thai", "label": "ธนาคาร (Banks)", "symbols": ["KBANK.BK", "SCB.BK", "BBL.BK", "KTB.BK", "TISCO.BK", "BAY.BK", "KTC.BK", "TCAP.BK", "KKP.BK"]},
+    {"id": "thai_energy", "market": "thai", "label": "พลังงาน (Energy)", "symbols": ["PTT.BK", "PTTEP.BK", "GULF.BK", "GPSC.BK", "EA.BK", "BANPU.BK", "TOP.BK", "IRPC.BK", "PTG.BK"]},
+    {"id": "thai_retail", "market": "thai", "label": "ค้าปลีก (Retail)", "symbols": ["CPALL.BK", "CPN.BK", "CRC.BK", "HMPRO.BK", "MINT.BK", "BJC.BK", "SIRI.BK", "CENTEL.BK"]},
+    {"id": "thai_healthcare", "market": "thai", "label": "โรงพยาบาล (Healthcare)", "symbols": ["BDMS.BK", "BH.BK", "CHG.BK", "PRM.BK", "SPRC.BK", "RPH.BK", "VIBHA.BK"]},
+    {"id": "thai_electronics", "market": "thai", "label": "อิเล็กทรอนิกส์ (Electronics)", "symbols": ["DELTA.BK", "KCE.BK", "HANA.BK", "SVOA.BK", "SMT.BK", "SYNEX.BK", "FPT.BK"]},
+    {"id": "thai_telecom", "market": "thai", "label": "สื่อสาร (Telecom)", "symbols": ["ADVANC.BK", "TRUE.BK", "INTUCH.BK", "DTAC.BK", "JAS.BK", "INSET.BK", "TOT.BK"]},
     {"id": "thai_other", "market": "thai", "label": "อื่นๆ (Others)", "symbols": ["AOT.BK", "SCC.BK", "MINT.BK"]},
 
     {"id": "cmdty_precious", "market": "commodities", "label": "โลหะมีค่า (Precious Metals)", "symbols": ["GC=F", "SI=F"]},
@@ -177,7 +177,7 @@
   "news_enabled": true,
   "news_count": 2,
   "summary_enabled": true,
-  "summary_lookbacks": [5, 20],
+  "summary_lookbacks": [1, 7], 
   "binance_base_url": "https://data-api.binance.vision",
   "binance_market": "spot"
 }

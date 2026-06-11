@@ -5,7 +5,7 @@ import pandas as pd
 import pytest
 
 from screener import main as main_mod
-from screener.config import Market, Rule, ScreenerConfig, Strategy, load_config
+from screener.config import Market, Rule, ScreenerConfig, Strategy, Theme, load_config
 
 
 def _ohlcv(n: int = 260, seed: int = 1) -> pd.DataFrame:
@@ -66,7 +66,38 @@ class TestScreenMarket:
         )
         market = Market(id="crypto", display_name="Crypto", calendar="24-7", symbol_provider="symbol-list")
         messages, screened = main_mod.screen_market(market, config)
-        assert messages == []  # no scoped strategies -> nothing built
+        assert messages == []  # no scoped strategies and no themes -> nothing built
+
+    def test_overview_sent_when_no_strategies(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # Regression: removing all strategies must not suppress the market overview.
+        monkeypatch.setattr(main_mod, "is_previous_trading_day", lambda *a, **k: True)
+        monkeypatch.setattr(main_mod, "get_market_symbols", lambda m: ["AAA", "BBB"])
+        monkeypatch.setattr(main_mod, "fetch_market_data", lambda *a, **k: {"AAA": _ohlcv(seed=4), "BBB": _ohlcv(seed=5)})
+
+        config = ScreenerConfig(
+            strategies=[],  # all strategies removed
+            etf_list=[],
+            news_enabled=False,
+            themes=[Theme(id="t", market="crypto", label="ทดสอบ", symbols=["AAA", "BBB"])],
+        )
+        market = Market(id="crypto", display_name="Crypto", calendar="24-7", symbol_provider="symbol-list")
+        messages, screened = main_mod.screen_market(market, config)
+        assert len(messages) == 1  # overview-only message still ships
+        assert "ภาพรวมตลาด" in messages[0]["altText"]
+
+
+class TestStrategiesEnabledFlag:
+    def test_default_enabled(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("STRATEGIES_ENABLED", raising=False)
+        assert main_mod._strategies_enabled() is True
+
+    def test_false_disables(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("STRATEGIES_ENABLED", "false")
+        assert main_mod._strategies_enabled() is False
+
+    def test_case_insensitive(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("STRATEGIES_ENABLED", "FALSE")
+        assert main_mod._strategies_enabled() is False
 
 
 class TestBackwardCompatConfig:

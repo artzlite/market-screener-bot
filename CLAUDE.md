@@ -32,6 +32,7 @@ ruff format src/ tests/
 | `LINE_NOTIFY_ENABLED` | `true` | Set `false` for dry-run (no messages sent) |
 | `LINE_BROADCAST_ENABLED` | `true` | `true` = Broadcast API (all followers); `false` = Push API (single user) |
 | `LINE_USER_ID` | — | Required only when `LINE_BROADCAST_ENABLED=false`, or to receive error alerts |
+| `STRATEGIES_ENABLED` | `true` | Set `false` to keep strategies in `config.json` but skip running them — sends the market overview only |
 
 For local testing without LINE credentials, set `LINE_NOTIFY_ENABLED=false`.
 

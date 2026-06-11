@@ -1,0 +1,195 @@
+//@version=6
+indicator("Stoch RSI Combo", shorttitle="StochRSI+", overlay=false, max_lines_count=500)
+
+// ── Inputs ──────────────────────────────────────────────────────────────────
+grp_rsi   = "RSI Settings"
+rsiLen    = input.int(14, "RSI Length", group=grp_rsi)
+rsiOB     = input.int(70, "Overbought", group=grp_rsi)
+rsiOS     = input.int(30, "Oversold",   group=grp_rsi)
+
+grp_stoch = "Stochastic Settings"
+kLen      = input.int(14, "%K Length",    group=grp_stoch)
+kSmooth   = input.int(3,  "%K Smoothing", group=grp_stoch)
+dSmooth   = input.int(3,  "%D Smoothing", group=grp_stoch)
+stochOB   = input.int(80, "Overbought",   group=grp_stoch)
+stochOS   = input.int(20, "Oversold",     group=grp_stoch)
+
+grp_style = "Visual"
+showBg    = input.bool(true, "Show Zone Background", group=grp_style)
+
+grp_dash  = "Dashboard Settings"
+showDash  = input.bool(true, "Show MTF Dashboard", group=grp_dash, tooltip="Toggle the visibility of the Multi-Timeframe status table.")
+dashLoc   = input.string(position.bottom_right, "Location", options=[position.top_right, position.bottom_right, position.top_left, position.bottom_left, position.middle_right], group=grp_dash)
+dashSize  = input.string(size.small, "Size", options=[size.tiny, size.small, size.normal, size.large], group=grp_dash)
+tf1       = input.timeframe("5",   "Timeframe 1", group=grp_dash)
+tf2       = input.timeframe("15",  "Timeframe 2", group=grp_dash)
+tf3       = input.timeframe("60",  "Timeframe 3", group=grp_dash)
+tf4       = input.timeframe("240", "Timeframe 4", group=grp_dash)
+
+grp_div   = "Divergence"
+calcDiv      = input.bool(true,  "Calculate RSI Divergence", group=grp_div)
+plotBull     = input.bool(true,  "Regular Bullish",          group=grp_div)
+plotHBull    = input.bool(false, "Hidden Bullish",           group=grp_div)
+plotBear     = input.bool(true,  "Regular Bearish",          group=grp_div)
+plotHBear    = input.bool(false, "Hidden Bearish",           group=grp_div)
+lbR          = input.int(5,  "Pivot Lookback Right", minval=1, group=grp_div)
+lbL          = input.int(5,  "Pivot Lookback Left",  minval=1, group=grp_div)
+rangeUpper   = input.int(60, "Max Lookback Range",   group=grp_div)
+rangeLower   = input.int(5,  "Min Lookback Range",   group=grp_div)
+confirmStoch = input.bool(true, "Require Stoch Confirmation", group=grp_div, tooltip="Only show a divergence if Stochastic is in the matching extreme zone — fewer, higher-quality signals.")
+
+// ── Calculations ─────────────────────────────────────────────────────────────
+rsiVal = ta.rsi(close, rsiLen)
+stochK = ta.sma(ta.stoch(close, high, low, kLen), kSmooth)
+stochD = ta.sma(stochK, dSmooth)
+
+// ── Colors ───────────────────────────────────────────────────────────────────
+RSI_BULL      = color.new(#c084fc, 0)
+RSI_BULL_FADE = color.new(#c084fc, 55)
+RSI_BEAR      = color.new(#7c3aed, 0)
+RSI_BEAR_FADE = color.new(#7c3aed, 55)
+
+rsiColor = rsiVal > rsiOB ? RSI_BEAR : rsiVal < rsiOS ? RSI_BULL : rsiVal > 50 ? RSI_BULL_FADE : RSI_BEAR_FADE
+
+SK_OB   = color.new(#f59e0b, 0)
+SK_OS   = color.new(#2dd4bf, 0)
+SK_BULL = color.new(#2dd4bf, 45)
+SK_BEAR = color.new(#f59e0b, 45)
+
+stochKCol = stochK > stochOB ? SK_OB : stochK < stochOS ? SK_OS : stochK > stochD ? SK_BULL : SK_BEAR
+stochDCol = color.new(#94a3b8, 50)
+
+// Dashboard cell tints
+TINT_OB  = color.new(#f59e0b, 25)   // amber  — overbought
+TINT_OS  = color.new(#2dd4bf, 25)   // teal   — oversold
+TINT_MID = color.new(#475569, 45)   // slate  — neutral
+
+// Divergence colors (match theme)
+divBull  = color.new(#2dd4bf, 0)    // teal  — bullish
+divBear  = color.new(#f59e0b, 0)    // amber — bearish
+divHBull = color.new(#2dd4bf, 55)
+divHBear = color.new(#f59e0b, 55)
+noneCol  = color.new(color.white, 100)
+
+// ── Zone Backgrounds ─────────────────────────────────────────────────────────
+if showBg
+    var obBox = box.new(bar_index, 100, bar_index, math.max(rsiOB, stochOB), border_color=color.new(#f59e0b, 88), bgcolor=color.new(#f59e0b, 92))
+    box.set_right(obBox, bar_index + 1)
+    box.set_left(obBox,  bar_index - 500)
+
+    var osBox = box.new(bar_index, math.min(rsiOS, stochOS), bar_index, 0, border_color=color.new(#2dd4bf, 88), bgcolor=color.new(#2dd4bf, 92))
+    box.set_right(osBox, bar_index + 1)
+    box.set_left(osBox,  bar_index - 500)
+
+// ── Reference Lines ───────────────────────────────────────────────────────────
+hline(rsiOB,   "RSI OB",   color.new(#7c3aed, 55), linestyle=hline.style_dashed, linewidth=1)
+hline(rsiOS,   "RSI OS",   color.new(#c084fc, 55), linestyle=hline.style_dashed, linewidth=1)
+hline(stochOB, "Stoch OB", color.new(#f59e0b, 60), linestyle=hline.style_dotted, linewidth=1)
+hline(stochOS, "Stoch OS", color.new(#2dd4bf, 60), linestyle=hline.style_dotted, linewidth=1)
+hline(50,      "Midline",  color.new(#64748b, 65), linestyle=hline.style_solid,  linewidth=1)
+
+// ── RSI — filled area plot (purple) ──────────────────────────────────────────
+midLine = plot(50, display=display.none)
+rsiPlot = plot(rsiVal, "RSI", color=rsiColor, linewidth=2)
+fill(rsiPlot, midLine, top_value=100, bottom_value=50, top_color=color.new(#c084fc, 82), bottom_color=color.new(#c084fc, 97))
+fill(rsiPlot, midLine, top_value=50,  bottom_value=0,  top_color=color.new(#7c3aed, 97), bottom_color=color.new(#7c3aed, 82))
+
+// ── Stochastic (amber/teal) ───────────────────────────────────────────────────
+plot(stochK, "%K", color=stochKCol, linewidth=2)
+plot(stochD, "%D", color=stochDCol, linewidth=1, style=plot.style_circles)
+
+// ── RSI Divergence ────────────────────────────────────────────────────────────
+osc = rsiVal
+
+plFound = not na(ta.pivotlow(osc,  lbL, lbR))
+phFound = not na(ta.pivothigh(osc, lbL, lbR))
+
+_inRange(cond) =>
+    bars = ta.barssince(cond == true)
+    rangeLower <= bars and bars <= rangeUpper
+
+// Hoist the range checks to globals so they run on every bar
+inRangePl = _inRange(plFound[1])
+inRangePh = _inRange(phFound[1])
+
+// Stoch confirmation gates (evaluated at the pivot, lbR bars back)
+stochOSok = not confirmStoch or stochK[lbR] < stochOS
+stochOBok = not confirmStoch or stochK[lbR] > stochOB
+
+// Regular Bullish: price LL, RSI HL
+oscHL    = osc[lbR] > ta.valuewhen(plFound, osc[lbR], 1) and inRangePl
+priceLL  = low[lbR] < ta.valuewhen(plFound, low[lbR], 1)
+bullCond = plotBull and priceLL and oscHL and plFound and stochOSok
+
+// Hidden Bullish: price HL, RSI LL
+oscLL     = osc[lbR] < ta.valuewhen(plFound, osc[lbR], 1) and inRangePl
+priceHL   = low[lbR] > ta.valuewhen(plFound, low[lbR], 1)
+hBullCond = plotHBull and priceHL and oscLL and plFound and stochOSok
+
+// Regular Bearish: price HH, RSI LH
+oscLH    = osc[lbR] < ta.valuewhen(phFound, osc[lbR], 1) and inRangePh
+priceHH  = high[lbR] > ta.valuewhen(phFound, high[lbR], 1)
+bearCond = plotBear and priceHH and oscLH and phFound and stochOBok
+
+// Hidden Bearish: price LH, RSI HH
+oscHH     = osc[lbR] > ta.valuewhen(phFound, osc[lbR], 1) and inRangePh
+priceLH   = high[lbR] < ta.valuewhen(phFound, high[lbR], 1)
+hBearCond = plotHBear and priceLH and oscHH and phFound and stochOBok
+
+plot(calcDiv and plFound ? osc[lbR] : na, "Bull Line",  offset=-lbR, linewidth=2, color=bullCond  ? divBull  : noneCol)
+plot(calcDiv and plFound ? osc[lbR] : na, "HBull Line", offset=-lbR, linewidth=2, color=hBullCond ? divHBull : noneCol)
+plot(calcDiv and phFound ? osc[lbR] : na, "Bear Line",  offset=-lbR, linewidth=2, color=bearCond  ? divBear  : noneCol)
+plot(calcDiv and phFound ? osc[lbR] : na, "HBear Line", offset=-lbR, linewidth=2, color=hBearCond ? divHBear : noneCol)
+
+plotshape(calcDiv and bullCond  ? osc[lbR] : na, "Regular Bullish", shape.labelup,   location.absolute, divBull,  text="Bull", textcolor=color.white, offset=-lbR, size=size.tiny)
+plotshape(calcDiv and hBullCond ? osc[lbR] : na, "Hidden Bullish",  shape.labelup,   location.absolute, divHBull, text="H",    textcolor=color.white, offset=-lbR, size=size.tiny)
+plotshape(calcDiv and bearCond  ? osc[lbR] : na, "Regular Bearish", shape.labeldown, location.absolute, divBear,  text="Bear", textcolor=color.white, offset=-lbR, size=size.tiny)
+plotshape(calcDiv and hBearCond ? osc[lbR] : na, "Hidden Bearish",  shape.labeldown, location.absolute, divHBear, text="H",    textcolor=color.white, offset=-lbR, size=size.tiny)
+
+alertcondition(bullCond, "RSI Bullish Divergence", "Regular bullish RSI divergence detected")
+alertcondition(bearCond, "RSI Bearish Divergence", "Regular bearish RSI divergence detected")
+
+// ── Dashboard Helpers ─────────────────────────────────────────────────────────
+// Pretty timeframe label (5 → 5m, 60 → 1H, 240 → 4H, D → 1D ...)
+format_tf(t) =>
+    n = str.tonumber(t)
+    na(n) ? t : n >= 1440 ? str.tostring(n / 1440) + "D" : n >= 60 ? str.tostring(n / 60) + "H" : str.tostring(n) + "m"
+
+// Status helper → label + tint
+stat_label(v, ob, os) => v > ob ? "OVB" : v < os ? "OVS" : ""
+stat_tint(v, ob, os)  => v > ob ? TINT_OB : v < os ? TINT_OS : TINT_MID
+
+// Bundle the values we want per timeframe
+mtf_vals() =>
+    r = ta.rsi(close, rsiLen)
+    k = ta.sma(ta.stoch(close, high, low, kLen), kSmooth)
+    [r, k]
+
+// ── MTF data (request.security must live in global scope) ─────────────────────
+[r1, k1] = request.security(syminfo.tickerid, tf1, mtf_vals(), lookahead=barmerge.lookahead_off)
+[r2, k2] = request.security(syminfo.tickerid, tf2, mtf_vals(), lookahead=barmerge.lookahead_off)
+[r3, k3] = request.security(syminfo.tickerid, tf3, mtf_vals(), lookahead=barmerge.lookahead_off)
+[r4, k4] = request.security(syminfo.tickerid, tf4, mtf_vals(), lookahead=barmerge.lookahead_off)
+
+// ── Dashboard ─────────────────────────────────────────────────────────────────
+if showDash and barstate.islast
+    var table dash = table.new(dashLoc, 3, 5, bgcolor=color.new(color.black, 40), border_width=1, border_color=color.new(color.gray, 70))
+
+    // Header row
+    table.cell(dash, 0, 0, "TF",    text_color=color.white, text_size=dashSize, bgcolor=color.new(#1e293b, 0))
+    table.cell(dash, 1, 0, "RSI",   text_color=color.white, text_size=dashSize, bgcolor=color.new(#1e293b, 0))
+    table.cell(dash, 2, 0, "Stoch", text_color=color.white, text_size=dashSize, bgcolor=color.new(#1e293b, 0))
+
+    tfs = array.from(tf1, tf2, tf3, tf4)
+    rs  = array.from(r1, r2, r3, r4)
+    ks  = array.from(k1, k2, k3, k4)
+
+    for i = 0 to 3
+        curr_tf = array.get(tfs, i)
+        r = array.get(rs, i)
+        k = array.get(ks, i)
+
+        row = i + 1
+        table.cell(dash, 0, row, format_tf(curr_tf), text_color=color.white, text_size=dashSize)
+        table.cell(dash, 1, row, stat_label(r, rsiOB,   rsiOS),   bgcolor=stat_tint(r, rsiOB,   rsiOS),   text_color=color.white, text_size=dashSize)
+        table.cell(dash, 2, row, stat_label(k, stochOB, stochOS), bgcolor=stat_tint(k, stochOB, stochOS), text_color=color.white, text_size=dashSize)
